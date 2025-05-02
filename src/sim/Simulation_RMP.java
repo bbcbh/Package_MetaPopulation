@@ -21,7 +21,15 @@ public class Simulation_RMP extends Simulation_ClusterModelTransmission {
 	
 	@Override
 	public Abstract_Runnable_ClusterModel_Transmission generateDefaultRunnable(long cMap_seed, long sim_seed, 
-			Properties loadProperties) {		
+			Properties loadProperties) {	
+		
+		String popType = (String) loadedProperties
+				.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_POP_TYPE]);
+		
+		// Test for popType
+		
+		
+		
 		return null;
 	}
 
