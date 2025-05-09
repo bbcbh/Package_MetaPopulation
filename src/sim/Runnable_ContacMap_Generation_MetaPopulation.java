@@ -16,14 +16,14 @@ import java.util.regex.Pattern;
 public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_ClusterModel_ContactMap_Generation_MultiMap {
 
 	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING = Runnable_ClusterModel_ContactMap_Generation_MultiMap.LENGTH_RUNNABLE_MAP_GEN_FIELD;
-	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_LOC_CONNECTIONS = RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING
+	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_LOC_CONNECTIONS = RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING
 			+ 1;
-	public static final int LENGTH_RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN = RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_LOC_CONNECTIONS
+	public static final int LENGTH_RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN = RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_LOC_CONNECTIONS
 			+ 1;
 
 	public static final String POP_STAT_INITAL_FORMAT = "POP_STAT_INITAL_%d.csv"; // Seed
 	public static final String POP_STAT_FINAL_FORMAT = "POP_STAT_FINAL_%d.csv"; // Seed
-	public static final String POP_STAT_MOVEGRP_FORMAT = "POP_STAT_MOVEGRP_%d.csv"; // Seed
+	public static final String POP_STAT_MOVE_LOC_FORMAT = "POP_STAT_MOVE_LOC_%d.csv"; // Seed
 
 	// Population Index from Abstract_Runnable_ClusterModel
 	// POP_INDEX_GRP = 0;
@@ -31,8 +31,8 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	// POP_INDEX_ENTER_POP_AT = POP_INDEX_ENTER_POP_AGE + 1;
 	// POP_INDEX_EXIT_POP_AT = POP_INDEX_ENTER_POP_AT + 1;
 	// POP_INDEX_HAS_REG_PARTNER_UNTIL = POP_INDEX_EXIT_POP_AT + 1;
-	private static int POP_INDEX_META_HOME_LOCATION_HIST = Abstract_Runnable_ClusterModel.LENGTH_POP_ENTRIES;
-	private static int LENGTH_POP_INDEX_META = POP_INDEX_META_HOME_LOCATION_HIST + 1;
+	private static int POP_INDEX_META_PARTNER_HIST = Abstract_Runnable_ClusterModel.LENGTH_POP_ENTRIES;
+	private static int LENGTH_POP_INDEX_META = POP_INDEX_META_PARTNER_HIST + 1;
 
 	protected final int NUM_GENDER;
 	protected final int NUM_LOC;
@@ -44,6 +44,11 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	private HashMap<Integer, int[]> helper_ageRange = null; // K = grp_indec, V = {age_min, age_max}
 	private HashMap<Integer, int[][]> helper_loc_connection = null; // K = location index, V = {connection_1, ...}
 																	// {cumul_weight_1,...}
+	private final String UPDATEOBJ_ACTIVE_IN_POP = "active_in_pop";
+	private final String UPDATEOBJ_SCHEDULED_MOVEGRP = "scheduled_move_grp";
+	private final String UPDATEOBJ_POP_STAT_INIT_IDS = "pop_stat_init_ids";
+	private final String UPDATEOBJ_POP_STAT_FINAL_IDS = "pop_stat_final_ids";
+	private final String UPDATEOBJ_POP_STAT_MOVE_LOC_IDS = "pop_stat_move_loc";
 
 	public Runnable_ContacMap_Generation_MetaPopulation(long mapSeed, Properties loadedProperties) {
 		super(mapSeed);
@@ -88,17 +93,17 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 			ArrayList<Integer> pop_stat_init_ids = new ArrayList<>();
 			ArrayList<Integer> pop_stat_final_ids = new ArrayList<>();
 
-			HashMap<Integer, ArrayList<Integer>> schedule_move_grp = new HashMap<>(); // K = time, V = list of pids e.g. for aging
+			HashMap<Integer, ArrayList<Integer>> scheduled_move_grp = new HashMap<>(); // K = time, V = list of pids
+																						// (sorted)
 			HashMap<Integer, ArrayList<Integer>> active_in_pop = new HashMap<>(); // K = grp, V = list of pids (sorted)
 
-			ArrayList<int[]> pop_stat_moveGrp = new ArrayList<>(); // int[]{time, pid, from_grp, to_grp}
-
+			ArrayList<int[]> pop_stat_move_loc = new ArrayList<>(); // int[]{time, pid, from_loc, to_loc}
 			HashMap<String, Object> updateObjs = new HashMap<>();
-			updateObjs.put("active_in_pop", active_in_pop);
-			updateObjs.put("pop_stat_init_ids", pop_stat_init_ids);
-			updateObjs.put("pop_stat_final_ids", pop_stat_final_ids);
-			updateObjs.put("pop_stat_moveGrp", pop_stat_moveGrp);
-			updateObjs.put("schedule_move_grp", schedule_move_grp);
+			updateObjs.put(UPDATEOBJ_ACTIVE_IN_POP, active_in_pop);
+			updateObjs.put(UPDATEOBJ_SCHEDULED_MOVEGRP, scheduled_move_grp);
+			updateObjs.put(UPDATEOBJ_POP_STAT_INIT_IDS, pop_stat_init_ids);
+			updateObjs.put(UPDATEOBJ_POP_STAT_FINAL_IDS, pop_stat_final_ids);
+			updateObjs.put(UPDATEOBJ_POP_STAT_MOVE_LOC_IDS, pop_stat_move_loc);
 
 			if (population.isEmpty()) {
 				// Initialise pop
@@ -127,20 +132,25 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 				for (int t = 0; t < snap_dur; t++) {
 
-					if (schedule_move_grp.containsKey(popTime)) {
-						ArrayList<Integer> move_grp_pids = schedule_move_grp.remove(popTime);
+					if (scheduled_move_grp.containsKey(popTime)) {
+						ArrayList<Integer> move_grp_pids = scheduled_move_grp.remove(popTime);
 
 						for (int move_grp_pid : move_grp_pids) {
-							int[] gla_index = getGrpIndex(
-									(int) population.get(move_grp_pid)[Abstract_Runnable_ClusterModel.POP_INDEX_GRP]);
-							if ((gla_index[2] + 1) < NUM_AGE_GRP) {
-								// Aging
-								int newGrp = (int) population
-										.get(move_grp_pid)[Abstract_Runnable_ClusterModel.POP_INDEX_GRP] + 1;
-								movePersonToNewGrp(popTime, population, move_grp_pid, newGrp, updateObjs);
-							} else {
-								// Age out
-								removePerson(population, move_grp_pid, updateObjs);
+							Object[] personStat = population.get(move_grp_pid);
+							int grp = (int) personStat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
+							if (Collections.binarySearch(active_in_pop.get(grp), move_grp_pid) >= 0) {
+								int[] gla_index = getGrpIndex(grp);
+								if ((gla_index[2] + 1) < NUM_AGE_GRP) {
+									// Aging
+									int newGrp = grp + 1;
+									int[] ageRange = getAgeRange(newGrp);
+									int nextMoveTime = popTime + ageRange[1] - ageRange[0];
+									personStat[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT] = nextMoveTime;
+									movePersonToNewGrp(popTime, move_grp_pid, personStat, newGrp, updateObjs);
+								} else {
+									// Age out
+									removePerson(move_grp_pid, personStat, updateObjs);
+								}
 							}
 
 						}
@@ -159,48 +169,58 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 						}
 					}
 
+					// Move or remove person
 					while (!grp_need_remove.isEmpty()) {
 						int src_g = grp_need_remove.remove(RNG.nextInt(grp_need_remove.size()));
 						int[] gla_index_src = getGrpIndex(src_g);
 						active_by_grp_sorted = active_in_pop.get(src_g);
-						int numToRemove = numInGrp[src_g] - active_by_grp_sorted.size();
+						int numToRemove = active_by_grp_sorted.size() - numInGrp[src_g];
 
 						int[] dest = getDestinations(gla_index_src[1])[0];
 						float offset = 0;
-						float[] cumul_num_req_by_grp = new float[dest.length];
+
+						ArrayList<Integer> valid_dest = new ArrayList<>();
+						ArrayList<Float> valid_space = new ArrayList<>();
 
 						// Check if there space at other locations
 						for (int dI = 0; dI < dest.length; dI++) {
 							int g = getGrpIndex(new int[] { gla_index_src[0], dest[dI], gla_index_src[2] });
-							cumul_num_req_by_grp[dI] = offset + Math.max(0, numInGrp[g] - active_in_pop.get(g).size());
-							offset += cumul_num_req_by_grp[dI];
+							int spaceInGrp = numInGrp[g] - active_in_pop.get(g).size();
+							if (spaceInGrp > 0) {
+								valid_dest.add(dest[dI]);
+								valid_space.add(offset + spaceInGrp);
+								offset += spaceInGrp;
+							}
 						}
 
-						while (numToRemove > 0 && cumul_num_req_by_grp[cumul_num_req_by_grp.length - 1] > 0) {
-
+						while (numToRemove > 0 && valid_dest.size() > 0) {
 							// Attempt to find a destination
-							int dest_location_index = Arrays.binarySearch(cumul_num_req_by_grp,
-									RNG.nextFloat() * cumul_num_req_by_grp[cumul_num_req_by_grp.length - 1]);
+							int dest_location_index = Collections.binarySearch(valid_space,
+									RNG.nextFloat() * valid_space.get(valid_space.size() - 1));
 
 							if (dest_location_index >= 0) {
 								dest_location_index = ~dest_location_index;
 							} else {
-								dest_location_index = Math.min(dest_location_index + 1,
-										cumul_num_req_by_grp.length - 1);
+								dest_location_index = Math.min(dest_location_index + 1, valid_space.size() - 1);
 							}
-							int dest_grp = getGrpIndex(
-									new int[] { gla_index_src[0], dest[dest_location_index], gla_index_src[2] });
+							int dest_grp = getGrpIndex(new int[] { gla_index_src[0],
+									valid_dest.get(dest_location_index), gla_index_src[2] });
 
 							// Choose a random person to move away
 							int move_pid = active_in_pop.get(src_g).get(RNG.nextInt(active_in_pop.get(src_g).size()));
-							movePersonToNewGrp(popTime, population, move_pid, dest_grp, updateObjs);
+							movePersonToNewGrp(popTime, move_pid, population.get(move_pid), dest_grp, updateObjs);
 
 							// Update cumul_num_req_by_grp
+							valid_dest.clear();
+							valid_space.clear();
 							for (int dI = 0; dI < dest.length; dI++) {
 								int g = getGrpIndex(new int[] { gla_index_src[0], dest[dI], gla_index_src[2] });
-								cumul_num_req_by_grp[dI] = offset
-										+ Math.max(0, numInGrp[g] - active_in_pop.get(g).size());
-								offset += cumul_num_req_by_grp[dI];
+								int spaceInGrp = numInGrp[g] - active_in_pop.get(g).size();
+								if (spaceInGrp > 0) {
+									valid_dest.add(dest[dI]);
+									valid_space.add(offset + spaceInGrp);
+									offset += spaceInGrp;
+								}
 							}
 
 							numToRemove--;
@@ -209,9 +229,34 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 						// Remove the rest
 						while (numToRemove > 0) {
-							int removed_pid = active_by_grp_sorted.remove(RNG.nextInt(active_by_grp_sorted.size()));
-							removePerson(population, removed_pid, updateObjs);
+							int removed_pid = active_by_grp_sorted.get(RNG.nextInt(active_by_grp_sorted.size()));
+							removePerson(removed_pid, population.get(removed_pid), updateObjs);
 							numToRemove = numInGrp[src_g] - active_by_grp_sorted.size();
+						}
+					}
+
+					// Add person
+					for (int g = 0; g < numInGrp.length; g++) {
+						active_by_grp_sorted = active_in_pop.get(g);
+						// Check how many person in grp
+						grpDiff[g] = active_by_grp_sorted.size() - numInGrp[g];
+
+						// Add new person
+						if (grpDiff[g] < 0) {
+							int[] ageRange = getAgeRange(g);
+
+							while (grpDiff[g] < 0) {
+								Object[] newPerson = new Object[LENGTH_POP_INDEX_META];
+								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_GRP] = g;
+								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AT] = popTime;
+								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE] = (int) ageRange[0]
+										+ RNG.nextInt(ageRange[1] - ageRange[0]);
+								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT] = popTime + ageRange[1]
+										- (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE];
+
+								nextId = addNewPerson(population, nextId, newPerson, updateObjs);
+								grpDiff[g] = active_by_grp_sorted.size() - numInGrp[g];
+							}
 						}
 
 					}
@@ -262,18 +307,18 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 						}
 						pop_stat_final_ids.clear();
 					}
-					if (!pop_stat_moveGrp.isEmpty()) {
-						tarFile = getTargetFile(String.format(POP_STAT_MOVEGRP_FORMAT, mapSeed));
+					if (!pop_stat_move_loc.isEmpty()) {
+						tarFile = getTargetFile(String.format(POP_STAT_MOVE_LOC_FORMAT, mapSeed));
 						boolean append = tarFile.exists();
 						pWri = new PrintWriter(new FileWriter(tarFile, append));
 						if (!append) {
-							pWri.println("TIME,ID,GRP_SRC,GRP_DEST");
+							pWri.println("TIME,ID,LOC_SRC,LOC_DEST");
 						}
-						for (int[] movement : pop_stat_moveGrp) {
+						for (int[] movement : pop_stat_move_loc) {
 							String line_raw = Arrays.toString(movement);
 							pWri.println(line_raw.substring(1, line_raw.length() - 1)); // Exclude ending []
 						}
-						pop_stat_moveGrp.clear();
+						pop_stat_move_loc.clear();
 					}
 
 				} catch (IOException e) {
@@ -288,14 +333,12 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	}
 
 	@SuppressWarnings("unchecked")
-	protected void removePerson(HashMap<Integer, Object[]> population, int remove_pid,
-			HashMap<String, Object> updateObjs) {
+	protected void removePerson(int remove_pid, Object[] remove_person_stat, HashMap<String, Object> updateObjs) {
 		HashMap<Integer, ArrayList<Integer>> active_in_pop = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get("active_in_pop");
-		ArrayList<Integer> pop_stat_final_ids = (ArrayList<Integer>) updateObjs.get("pop_stat_final_ids");
+				.get(UPDATEOBJ_ACTIVE_IN_POP);
+		ArrayList<Integer> pop_stat_final_ids = (ArrayList<Integer>) updateObjs.get(UPDATEOBJ_POP_STAT_FINAL_IDS);
 
-		Object[] person_stat = population.get(remove_pid);
-		int orgGrp = (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
+		int orgGrp = (int) remove_person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
 
 		if (active_in_pop != null) {
 			ArrayList<Integer> active_by_grp_sorted = active_in_pop.get(orgGrp);
@@ -315,17 +358,15 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	}
 
 	@SuppressWarnings("unchecked")
-	protected void movePersonToNewGrp(int moveTime, HashMap<Integer, Object[]> population, int move_pid, int newGrp,
+	protected void movePersonToNewGrp(int moveTime, int move_pid, Object[] person_stat, int newGrp,
 			HashMap<String, Object> updateObjs) {
 		HashMap<Integer, ArrayList<Integer>> active_in_pop = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get("active_in_pop");
-		ArrayList<int[]> pop_stat_moveGrp = (ArrayList<int[]>) updateObjs.get("pop_stat_moveGrp");
-
+				.get(UPDATEOBJ_ACTIVE_IN_POP);
 		HashMap<Integer, ArrayList<Integer>> schedule_move_grp = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get("schedule_move_grp");
+				.get(UPDATEOBJ_SCHEDULED_MOVEGRP);
+		ArrayList<int[]> pop_stat_moveGrp = (ArrayList<int[]>) updateObjs.get(UPDATEOBJ_POP_STAT_MOVE_LOC_IDS);
 
 		int aI;
-		Object[] person_stat = population.get(move_pid);
 		int orgGrp = (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
 		person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP] = newGrp;
 
@@ -346,18 +387,26 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 		}
 
 		if (schedule_move_grp != null) {
-			ArrayList<Integer> move_grp_pids = schedule_move_grp.get(moveTime);
+			int nextMoveTime = (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT];
+			ArrayList<Integer> move_grp_pids = schedule_move_grp.get(nextMoveTime);
 			if (move_grp_pids == null) {
 				move_grp_pids = new ArrayList<>();
-				schedule_move_grp.put(moveTime, move_grp_pids);
+				schedule_move_grp.put(nextMoveTime, move_grp_pids);
 			}
-			move_grp_pids.add(move_pid);
+			aI = Collections.binarySearch(move_grp_pids, move_pid);
+			if (aI < 0) {
+				move_grp_pids.add(~aI, move_pid);
+			}
 		} else {
 			System.err.println("Warning! schedule_move_grp not found.");
 		}
 
 		if (pop_stat_moveGrp != null) {
-			pop_stat_moveGrp.add(new int[] { moveTime, move_pid, orgGrp, newGrp });
+			int srcLoc = getGrpIndex(orgGrp)[1];
+			int newLoc = getGrpIndex(newGrp)[1];
+			if (srcLoc != newLoc) {
+				pop_stat_moveGrp.add(new int[] { moveTime, move_pid, srcLoc, newLoc });
+			}
 		} else {
 			System.err.println("Warning! pop_stat_moveGrp not found.");
 		}
@@ -371,21 +420,25 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 		population.put(nextId, newPerson);
 
 		HashMap<Integer, ArrayList<Integer>> schedule_move_grp = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get("schedule_move_grp");
+				.get(UPDATEOBJ_SCHEDULED_MOVEGRP);
 		HashMap<Integer, ArrayList<Integer>> active_in_pop = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get("active_in_pop");
-		ArrayList<Integer> pop_stat_init_ids = (ArrayList<Integer>) updateObjs.get("pop_stat_init_ids");
+				.get(UPDATEOBJ_ACTIVE_IN_POP);
+		ArrayList<Integer> pop_stat_init_ids = (ArrayList<Integer>) updateObjs.get(UPDATEOBJ_POP_STAT_INIT_IDS);
+
+		int aI;
 
 		// Schedule exit group
 		if (schedule_move_grp != null) {
-
 			int exit_grp_time = (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT];
-			ArrayList<Integer> move_grp_pids = schedule_move_grp.get(exit_grp_time);
-			if (move_grp_pids == null) {
-				move_grp_pids = new ArrayList<>();
-				schedule_move_grp.put(exit_grp_time, move_grp_pids);
+			ArrayList<Integer> move_grp_pids_sorted = schedule_move_grp.get(exit_grp_time);
+			if (move_grp_pids_sorted == null) {
+				move_grp_pids_sorted = new ArrayList<>();
+				schedule_move_grp.put(exit_grp_time, move_grp_pids_sorted);
 			}
-			move_grp_pids.add(nextId);
+			aI = Collections.binarySearch(move_grp_pids_sorted, nextId);
+			if (aI < 0) {
+				move_grp_pids_sorted.add(~aI, nextId);
+			}
 		} else {
 			System.err.println("Warning! schedule_move_grp not found.");
 		}
@@ -398,7 +451,7 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 				active_by_grp_sorted = new ArrayList<>();
 				active_in_pop.put(grp_num, active_by_grp_sorted);
 			}
-			int aI = Collections.binarySearch(active_by_grp_sorted, nextId);
+			aI = Collections.binarySearch(active_by_grp_sorted, nextId);
 			if (aI < 0) {
 				active_by_grp_sorted.add(~aI, nextId);
 			}
@@ -435,7 +488,7 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 		if (helper_loc_connection == null) {
 			helper_loc_connection = new HashMap<>();
 			HashMap<Integer, ArrayList<Integer>> connc_raw = new HashMap<>();
-			int[][] conncs = (int[][]) getRunnable_fields()[RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_LOC_CONNECTIONS];
+			int[][] conncs = (int[][]) getRunnable_fields()[RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_LOC_CONNECTIONS];
 			for (int[] connc : conncs) {
 				int src = connc[0];
 				ArrayList<Integer> arr = connc_raw.get(src);
@@ -455,9 +508,8 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 				for (int i = 0; i < ent.getValue().size(); i += 2) {
 					res[0][loc_pt] = ent.getValue().get(i);
 					res[1][loc_pt] = cumul_weight + ent.getValue().get(i + 1);
-
-					loc_pt++;
 					cumul_weight += res[1][loc_pt];
+					loc_pt++;
 				}
 				helper_loc_connection.put(ent.getKey(), res);
 			}
