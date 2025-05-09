@@ -14,7 +14,7 @@ public class Simulation_RMP extends Simulation_ClusterModelTransmission {
 		final String USAGE_INFO = String.format(
 				"Usage: java %s PROP_FILE_DIRECTORY " + "<-export_skip_backup> <-printProgress> <-seedMap=SEED_MAP>\n"
 						+ "    or java %s -genMap PROP_FILE_DIRECTORY -seedMap=SEED_MAP",
-				Simulation_RMP.class.getName());
+				Simulation_RMP.class.getName(), Simulation_RMP.class.getName());
 		if (args.length < 1) {
 			System.out.println(USAGE_INFO);
 			System.exit(0);
@@ -101,7 +101,7 @@ public class Simulation_RMP extends Simulation_ClusterModelTransmission {
 		String popType = (String) loadedProperties
 				.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_POP_TYPE]);
 
-		//TODO: Test for popType
+		//TODO: Simulation to be implemented
 
 		return null;
 	}
