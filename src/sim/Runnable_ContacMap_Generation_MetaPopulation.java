@@ -26,13 +26,15 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	public static final String POP_STAT_MOVE_LOC_FORMAT = "POP_STAT_MOVE_LOC_%d.csv"; // Seed
 
 	// Population Index from Abstract_Runnable_ClusterModel
-	// POP_INDEX_GRP = 0;
+	// POP_INDEX_GRP = 0; // Group when enter population
 	// POP_INDEX_ENTER_POP_AGE = POP_INDEX_GRP + 1;
 	// POP_INDEX_ENTER_POP_AT = POP_INDEX_ENTER_POP_AGE + 1;
 	// POP_INDEX_EXIT_POP_AT = POP_INDEX_ENTER_POP_AT + 1;
 	// POP_INDEX_HAS_REG_PARTNER_UNTIL = POP_INDEX_EXIT_POP_AT + 1;
-	private static int POP_INDEX_META_PARTNER_HIST = Abstract_Runnable_ClusterModel.LENGTH_POP_ENTRIES;
-	private static int LENGTH_POP_INDEX_META = POP_INDEX_META_PARTNER_HIST + 1;
+	private static final int POP_INDEX_META_LOC_TARGET = Abstract_Runnable_ClusterModel.LENGTH_POP_ENTRIES;
+	private static final int POP_INDEX_META_LOC_MOVE_AT = POP_INDEX_META_LOC_TARGET + 1;
+	private static final int POP_INDEX_META_PARTNER_HIST = POP_INDEX_META_LOC_MOVE_AT + 1;
+	private static final int LENGTH_POP_INDEX_META = POP_INDEX_META_PARTNER_HIST + 1;
 
 	protected final int NUM_GENDER;
 	protected final int NUM_LOC;
@@ -41,14 +43,15 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 	private Pattern pattern_propName = Pattern.compile("RMP_MultMap_(\\d+)_(\\d+)_(\\d+)");
 
-	private HashMap<Integer, int[]> helper_ageRange = null; // K = grp_indec, V = {age_min, age_max}
+	private int[] helper_ageRange_all = null;
+	private HashMap<Integer, int[]> helper_ageRange_by_grp = null; // K = grp_indec, V = {age_min, age_max}
 	private HashMap<Integer, int[][]> helper_loc_connection = null; // K = location index, V = {connection_1, ...}
 																	// {cumul_weight_1,...}
 	private final String UPDATEOBJ_ACTIVE_IN_POP = "active_in_pop";
-	private final String UPDATEOBJ_SCHEDULED_MOVEGRP = "scheduled_move_grp";
+	private final String UPDATEOBJ_SCHEDULE_MOVE_GRP = "schedule_move_loc";
 	private final String UPDATEOBJ_POP_STAT_INIT_IDS = "pop_stat_init_ids";
 	private final String UPDATEOBJ_POP_STAT_FINAL_IDS = "pop_stat_final_ids";
-	private final String UPDATEOBJ_POP_STAT_MOVE_LOC_IDS = "pop_stat_move_loc";
+	private final String UPDATEOBJ_POP_STAT_MOVE_IDS = "pop_stat_move_ids";
 
 	public Runnable_ContacMap_Generation_MetaPopulation(long mapSeed, Properties loadedProperties) {
 		super(mapSeed);
@@ -92,36 +95,38 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 			ArrayList<Integer> pop_stat_init_ids = new ArrayList<>();
 			ArrayList<Integer> pop_stat_final_ids = new ArrayList<>();
+			ArrayList<int[]> pop_stat_move_ids = new ArrayList<>();
 
-			HashMap<Integer, ArrayList<Integer>> scheduled_move_grp = new HashMap<>(); // K = time, V = list of pids
-																						// (sorted)
 			HashMap<Integer, ArrayList<Integer>> active_in_pop = new HashMap<>(); // K = grp, V = list of pids (sorted)
+			HashMap<Integer, ArrayList<int[]>> schedule_move_grp = new HashMap<>(); // K = time, V = {pid,
+																					// from_grp,to_grp}
 
-			ArrayList<int[]> pop_stat_move_loc = new ArrayList<>(); // int[]{time, pid, from_loc, to_loc}
 			HashMap<String, Object> updateObjs = new HashMap<>();
 			updateObjs.put(UPDATEOBJ_ACTIVE_IN_POP, active_in_pop);
-			updateObjs.put(UPDATEOBJ_SCHEDULED_MOVEGRP, scheduled_move_grp);
+			updateObjs.put(UPDATEOBJ_SCHEDULE_MOVE_GRP, schedule_move_grp);
 			updateObjs.put(UPDATEOBJ_POP_STAT_INIT_IDS, pop_stat_init_ids);
 			updateObjs.put(UPDATEOBJ_POP_STAT_FINAL_IDS, pop_stat_final_ids);
-			updateObjs.put(UPDATEOBJ_POP_STAT_MOVE_LOC_IDS, pop_stat_move_loc);
+			updateObjs.put(UPDATEOBJ_POP_STAT_MOVE_IDS, pop_stat_move_ids);
 
 			if (population.isEmpty()) {
 				// Initialise pop
 				for (int g = 0; g < numInGrp.length; g++) {
 					int[] ageRange = getAgeRange(g);
-
 					for (int i = 0; i < numInGrp[g]; i++) {
 						Object[] newPerson = new Object[LENGTH_POP_INDEX_META];
 						newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_GRP] = g;
 						newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AT] = 0;
 						newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE] = (int) ageRange[0]
 								+ RNG.nextInt(ageRange[1] - ageRange[0]);
-
-						// Note: Exit at in the case is exit the new group
+						// Time for moving to next age group
 						newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT] = ageRange[1]
 								- (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE];
 
-						nextId = addNewPerson(population, nextId, newPerson, updateObjs);
+						newPerson[POP_INDEX_META_LOC_TARGET] = new ArrayList<Integer>();
+						newPerson[POP_INDEX_META_LOC_MOVE_AT] = new ArrayList<Integer>();
+
+						nextId = addNewPersonToPopulation(population, nextId, newPerson, updateObjs);
+
 					}
 				}
 			}
@@ -129,143 +134,181 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 			int numSnapsSim = Math.max(numSnaps, Math.round(contactMapValidRange[1] / snap_dur));
 
 			for (int snapC = 0; snapC < numSnapsSim; snapC++) {
+				int snap_start = popTime;
+				
+				// Schedule group movement with snap duration based on group size
+				int[] grpDiff = new int[numInGrp.length];
+				ArrayList<Integer> grp_need_remove = new ArrayList<>();
+				ArrayList<Integer> active_by_grp_sorted;
 
-				for (int t = 0; t < snap_dur; t++) {
-
-					if (scheduled_move_grp.containsKey(popTime)) {
-						ArrayList<Integer> move_grp_pids = scheduled_move_grp.remove(popTime);
-
-						for (int move_grp_pid : move_grp_pids) {
-							Object[] personStat = population.get(move_grp_pid);
-							int grp = (int) personStat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
-							if (Collections.binarySearch(active_in_pop.get(grp), move_grp_pid) >= 0) {
-								int[] gla_index = getGrpIndex(grp);
-								if ((gla_index[2] + 1) < NUM_AGE_GRP) {
-									// Aging
-									int newGrp = grp + 1;
-									int[] ageRange = getAgeRange(newGrp);
-									int nextMoveTime = popTime + ageRange[1] - ageRange[0];
-									personStat[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT] = nextMoveTime;
-									movePersonToNewGrp(popTime, move_grp_pid, personStat, newGrp, updateObjs);
-								} else {
-									// Age out
-									removePerson(move_grp_pid, personStat, updateObjs);
-								}
-							}
-
-						}
+				for (int g = 0; g < numInGrp.length; g++) {
+					active_by_grp_sorted = active_in_pop.get(g);
+					// Check how many person in grp
+					grpDiff[g] = active_by_grp_sorted.size() - numInGrp[g];
+					if (grpDiff[g] > 0) {
+						grp_need_remove.add(g);
 					}
+				}
 
-					int[] grpDiff = new int[numInGrp.length];
-					ArrayList<Integer> grp_need_remove = new ArrayList<>();
-					ArrayList<Integer> active_by_grp_sorted;
+				// Move person if there are any suitable
+				while (!grp_need_remove.isEmpty()) {
+					int src_g = grp_need_remove.remove(RNG.nextInt(grp_need_remove.size()));
+					int[] gla_index_src = getGrpIndex(src_g);
+					active_by_grp_sorted = active_in_pop.get(src_g);
+					int numToRemove = active_by_grp_sorted.size() - numInGrp[src_g];
 
-					for (int g = 0; g < numInGrp.length; g++) {
-						active_by_grp_sorted = active_in_pop.get(g);
-						// Check how many person in grp
-						grpDiff[g] = active_by_grp_sorted.size() - numInGrp[g];
-						if (grpDiff[g] > 0) {
-							grp_need_remove.add(g);
+					int[] dest = getDestinations(gla_index_src[1])[0];
+					ArrayList<Integer> valid_dest = new ArrayList<>();
+					ArrayList<Float> valid_space = new ArrayList<>();
+				
+					// Check if there space at other locations
+					checkValidMoveDestination(gla_index_src, dest, grpDiff, valid_dest, valid_space);
+
+					while (numToRemove > 0 && valid_dest.size() > 0) {
+						// Attempt to find a destination
+						int dest_location_index = Collections.binarySearch(valid_space,
+								RNG.nextFloat() * valid_space.get(valid_space.size() - 1));
+
+						if (dest_location_index >= 0) {
+							dest_location_index = ~dest_location_index;
+						} else {
+							dest_location_index = Math.min(dest_location_index + 1, valid_space.size() - 1);
 						}
+						int dest_grp = getGrpIndex(
+								new int[] { gla_index_src[0], valid_dest.get(dest_location_index), gla_index_src[2] });
+
+						// Choose a random person to move away
+						int move_pid = active_in_pop.get(src_g).get(RNG.nextInt(active_in_pop.get(src_g).size()));
+
+						schedule_movePerson(snap_start, move_pid, population.get(move_pid), dest_grp, updateObjs);
+						
+						grpDiff[src_g]--;
+						grpDiff[dest_grp]++;
+						
+						checkValidMoveDestination(gla_index_src, dest, grpDiff, valid_dest, valid_space);						
+						numToRemove--;
 					}
+				}
 
-					// Move or remove person
-					while (!grp_need_remove.isEmpty()) {
-						int src_g = grp_need_remove.remove(RNG.nextInt(grp_need_remove.size()));
-						int[] gla_index_src = getGrpIndex(src_g);
-						active_by_grp_sorted = active_in_pop.get(src_g);
-						int numToRemove = active_by_grp_sorted.size() - numInGrp[src_g];
+				// Add or remove person
+				for (int g = 0; g < numInGrp.length; g++) {					
+					// Add new person
+					if (grpDiff[g] < 0) {
+						int[] ageRange = getAgeRange(g);
+						int numToAdd = -grpDiff[g];
 
-						int[] dest = getDestinations(gla_index_src[1])[0];
-						float offset = 0;
+						while (numToAdd > 0) {
+							int add_time = snap_start + RNG.nextInt(snap_dur);
+							ArrayList<int[]> move_schedule_at = schedule_move_grp.get(add_time);
 
-						ArrayList<Integer> valid_dest = new ArrayList<>();
-						ArrayList<Float> valid_space = new ArrayList<>();
-
-						// Check if there space at other locations
-						for (int dI = 0; dI < dest.length; dI++) {
-							int g = getGrpIndex(new int[] { gla_index_src[0], dest[dI], gla_index_src[2] });
-							int spaceInGrp = numInGrp[g] - active_in_pop.get(g).size();
-							if (spaceInGrp > 0) {
-								valid_dest.add(dest[dI]);
-								valid_space.add(offset + spaceInGrp);
-								offset += spaceInGrp;
+							if (move_schedule_at == null) {
+								move_schedule_at = new ArrayList<>();
+								schedule_move_grp.put(add_time, move_schedule_at);
 							}
+							move_schedule_at.add(new int[] { -nextId });
+
+							Object[] newPerson = new Object[LENGTH_POP_INDEX_META];
+							newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_GRP] = g;
+							newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AT] = add_time;
+							newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE] = (int) ageRange[0]
+									+ RNG.nextInt(ageRange[1] - ageRange[0]);
+							// Time for moving to next age group
+							newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT] = popTime + ageRange[1]
+									- (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE];
+							newPerson[POP_INDEX_META_LOC_TARGET] = new ArrayList<Integer>();
+							newPerson[POP_INDEX_META_LOC_MOVE_AT] = new ArrayList<Integer>();
+							nextId = addNewPersonToPopulation(population, nextId, newPerson, updateObjs);
+							numToAdd--;
 						}
-
-						while (numToRemove > 0 && valid_dest.size() > 0) {
-							// Attempt to find a destination
-							int dest_location_index = Collections.binarySearch(valid_space,
-									RNG.nextFloat() * valid_space.get(valid_space.size() - 1));
-
-							if (dest_location_index >= 0) {
-								dest_location_index = ~dest_location_index;
-							} else {
-								dest_location_index = Math.min(dest_location_index + 1, valid_space.size() - 1);
-							}
-							int dest_grp = getGrpIndex(new int[] { gla_index_src[0],
-									valid_dest.get(dest_location_index), gla_index_src[2] });
-
-							// Choose a random person to move away
-							int move_pid = active_in_pop.get(src_g).get(RNG.nextInt(active_in_pop.get(src_g).size()));
-							movePersonToNewGrp(popTime, move_pid, population.get(move_pid), dest_grp, updateObjs);
-
-							// Update cumul_num_req_by_grp
-							valid_dest.clear();
-							valid_space.clear();
-							for (int dI = 0; dI < dest.length; dI++) {
-								int g = getGrpIndex(new int[] { gla_index_src[0], dest[dI], gla_index_src[2] });
-								int spaceInGrp = numInGrp[g] - active_in_pop.get(g).size();
-								if (spaceInGrp > 0) {
-									valid_dest.add(dest[dI]);
-									valid_space.add(offset + spaceInGrp);
-									offset += spaceInGrp;
-								}
-							}
-
-							numToRemove--;
-
-						}
-
-						// Remove the rest
-						while (numToRemove > 0) {
+					} else if (grpDiff[g] > 0) {
+						int numToRemove = grpDiff[g];
+						while (numToRemove > 0) {			
+							active_by_grp_sorted = active_in_pop.get(g);							
 							int removed_pid = active_by_grp_sorted.get(RNG.nextInt(active_by_grp_sorted.size()));
-							removePerson(removed_pid, population.get(removed_pid), updateObjs);
-							numToRemove = numInGrp[src_g] - active_by_grp_sorted.size();
+							Object[] remPerson = population.get(removed_pid);
+							int remove_time = snap_start + RNG.nextInt(snap_dur);
+							remPerson[POP_INDEX_EXIT_POP_AT] = remove_time;
+							ArrayList<int[]> move_schedule_at = schedule_move_grp.get(remove_time);
+							if (move_schedule_at == null) {
+								move_schedule_at = new ArrayList<>();
+								schedule_move_grp.put(remove_time, move_schedule_at);
+							}
+							move_schedule_at.add(new int[] { removed_pid });
+							numToRemove--;
 						}
+
 					}
 
-					// Add person
-					for (int g = 0; g < numInGrp.length; g++) {
-						active_by_grp_sorted = active_in_pop.get(g);
-						// Check how many person in grp
-						grpDiff[g] = active_by_grp_sorted.size() - numInGrp[g];
+				}
+				while (popTime < snap_start + snap_dur) {
+					// Aging, movement and form partnership
+					ArrayList<int[]> schedule_move_grp_today = schedule_move_grp.remove(popTime);
+					if (schedule_move_grp_today != null) {
+						for (int[] movement : schedule_move_grp_today) {
+							int aI;
+							int pid = movement[0];
+							Object[] person_stat = population.get(pid);
 
-						// Add new person
-						if (grpDiff[g] < 0) {
-							int[] ageRange = getAgeRange(g);
+							if (pid < 0) {
+								// Add person
+								pid = Math.abs(pid);
+								int init_grp = (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
+								ArrayList<Integer> active_in_pop_by_grp = active_in_pop.get(init_grp);
+								if (active_in_pop_by_grp == null) {
+									active_in_pop_by_grp = new ArrayList<>();
+									active_in_pop.put(init_grp, active_in_pop_by_grp);
+								}
+								active_in_pop_by_grp.add(pid);
 
-							while (grpDiff[g] < 0) {
-								Object[] newPerson = new Object[LENGTH_POP_INDEX_META];
-								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_GRP] = g;
-								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AT] = popTime;
-								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE] = (int) ageRange[0]
-										+ RNG.nextInt(ageRange[1] - ageRange[0]);
-								newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT] = popTime + ageRange[1]
-										- (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE];
+							} else {
+								int currentGrp = getGrpAtTime(person_stat, popTime);
+								int[] gla = getGrpIndex(currentGrp);
 
-								nextId = addNewPerson(population, nextId, newPerson, updateObjs);
-								grpDiff[g] = active_by_grp_sorted.size() - numInGrp[g];
+								aI = Collections.binarySearch(active_in_pop.get(currentGrp), pid);
+								if (aI >= 0) {
+									active_in_pop.get(movement[1]).remove(aI);
+								}
+								if (movement.length == 1) {
+									// Aging
+									if (gla[2] + 1 < NUM_AGE_GRP) {
+										gla[2]++;
+										int newGrp = getGrpIndex(gla);
+										int[] ageRange = getAgeRange(newGrp);
+										int exitTime = (ageRange[1] - ageRange[0]) + popTime;
+										person_stat[POP_INDEX_EXIT_POP_AT] = exitTime;
+
+										ArrayList<int[]> move_sch_exit = schedule_move_grp.get(exitTime);
+										if (move_sch_exit == null) {
+											move_sch_exit = new ArrayList<>();
+											schedule_move_grp.put(exitTime, move_sch_exit);
+										}
+										move_sch_exit.add(new int[] { nextId });
+
+										aI = Collections.binarySearch(active_in_pop.get(newGrp), pid);
+										if (aI < 0) {
+											active_in_pop.get(newGrp).add(~aI, pid);
+										}
+									} else {
+										person_stat[POP_INDEX_EXIT_POP_AT] = popTime;
+										removePerson(pid, person_stat, updateObjs);
+									}
+
+								} else {
+									// Movement
+									aI = Collections.binarySearch(active_in_pop.get(movement[1]), pid);
+									if (aI < 0) {
+										active_in_pop.get(movement[1]).add(~aI, pid);
+									}
+									pop_stat_move_ids.add(new int[] { popTime, pid, movement[1] });
+								}
 							}
 						}
-
 					}
-
 					// TODO: Form partnership
 
 					popTime++;
 
-				} // End of for (int t = 0; t < snap_dur; t++) loop
+				} // End of while (popTime < snap_start + snap_dur) {
 
 				// Print intermittent and final pop stat
 				try {
@@ -295,30 +338,30 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 						boolean append = tarFile.exists();
 						pWri = new PrintWriter(new FileWriter(tarFile, append));
 						if (!append) {
-							pWri.println("ID,ENTER_POP_AGE,ENTER_POP_AT_TIME,EXIT_POP_AT_TIME");
+							pWri.println("ID,ENTER_POP_AGE,ENTER_POP_AT_TIME,INIT_GRP,EXIT_POP_AT_TIME");
 						}
 						for (Integer id : pop_stat_final_ids) {
 							Object[] person_stat = population.get(id);
-							pWri.printf("%d,%s,%s,%s\n", id,
+							pWri.printf("%d,%s,%s,%s,%s\n", id,
 									person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE].toString(),
 									person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AT].toString(),
+									person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP].toString(),
 									person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT].toString());
 
 						}
 						pop_stat_final_ids.clear();
 					}
-					if (!pop_stat_move_loc.isEmpty()) {
+					if (!pop_stat_move_ids.isEmpty()) {
 						tarFile = getTargetFile(String.format(POP_STAT_MOVE_LOC_FORMAT, mapSeed));
 						boolean append = tarFile.exists();
 						pWri = new PrintWriter(new FileWriter(tarFile, append));
 						if (!append) {
-							pWri.println("TIME,ID,LOC_SRC,LOC_DEST");
+							pWri.println("TIME,ID,DEST_LOC");
 						}
-						for (int[] movement : pop_stat_move_loc) {
-							String line_raw = Arrays.toString(movement);
-							pWri.println(line_raw.substring(1, line_raw.length() - 1)); // Exclude ending []
+						for (int[] movement : pop_stat_move_ids) {
+							pWri.printf("%d,%d,%d\n", movement[0], movement[1], movement[2]);
 						}
-						pop_stat_move_loc.clear();
+						schedule_move_grp.clear();
 					}
 
 				} catch (IOException e) {
@@ -332,23 +375,26 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 	}
 
-	@SuppressWarnings("unchecked")
-	protected void removePerson(int remove_pid, Object[] remove_person_stat, HashMap<String, Object> updateObjs) {
-		HashMap<Integer, ArrayList<Integer>> active_in_pop = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get(UPDATEOBJ_ACTIVE_IN_POP);
-		ArrayList<Integer> pop_stat_final_ids = (ArrayList<Integer>) updateObjs.get(UPDATEOBJ_POP_STAT_FINAL_IDS);
-
-		int orgGrp = (int) remove_person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
-
-		if (active_in_pop != null) {
-			ArrayList<Integer> active_by_grp_sorted = active_in_pop.get(orgGrp);
-			int aI = Collections.binarySearch(active_by_grp_sorted, remove_pid);
-			if (aI >= 0) {
-				active_by_grp_sorted.remove(aI);
+	private void checkValidMoveDestination(int[] src_gla_index, int[] dest, int[] grpDiff,
+			ArrayList<Integer> valid_dest, ArrayList<Float> valid_space) {
+		float offset;
+		valid_dest.clear();
+		valid_space.clear();
+		offset = 0;
+		for (int dI = 0; dI < dest.length; dI++) {
+			int g = getGrpIndex(new int[] { src_gla_index[0], dest[dI], src_gla_index[2] });
+			int spaceInGrp = -grpDiff[g];
+			if (spaceInGrp > 0) {
+				valid_dest.add(dest[dI]);
+				valid_space.add(offset + spaceInGrp);
+				offset += spaceInGrp;
 			}
-		} else {
-			System.err.println("Warning! active_in_pop not found.");
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void removePerson(int remove_pid, Object[] remove_person_stat, HashMap<String, Object> updateObjs) {
+		ArrayList<Integer> pop_stat_final_ids = (ArrayList<Integer>) updateObjs.get(UPDATEOBJ_POP_STAT_FINAL_IDS);
 
 		if (pop_stat_final_ids != null) {
 			pop_stat_final_ids.add(remove_pid);
@@ -358,111 +404,108 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	}
 
 	@SuppressWarnings("unchecked")
-	protected void movePersonToNewGrp(int moveTime, int move_pid, Object[] person_stat, int newGrp,
+	private void schedule_movePerson(int moveTime_from, int move_pid, Object[] person_stat, int newGrp,
 			HashMap<String, Object> updateObjs) {
-		HashMap<Integer, ArrayList<Integer>> active_in_pop = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get(UPDATEOBJ_ACTIVE_IN_POP);
-		HashMap<Integer, ArrayList<Integer>> schedule_move_grp = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get(UPDATEOBJ_SCHEDULED_MOVEGRP);
-		ArrayList<int[]> pop_stat_moveGrp = (ArrayList<int[]>) updateObjs.get(UPDATEOBJ_POP_STAT_MOVE_LOC_IDS);
 
-		int aI;
-		int orgGrp = (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
-		person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP] = newGrp;
+		HashMap<Integer, ArrayList<int[]>> schedule_move_loc = (HashMap<Integer, ArrayList<int[]>>) updateObjs
+				.get(UPDATEOBJ_SCHEDULE_MOVE_GRP);
 
-		if (active_in_pop != null) {
-			ArrayList<Integer> active_by_grp_sorted = active_in_pop.get(orgGrp);
-			aI = Collections.binarySearch(active_by_grp_sorted, move_pid);
-			if (aI >= 0) {
-				active_by_grp_sorted.remove(aI);
+		int moveTime = moveTime_from + RNG.nextInt(snap_dur);
+
+		int orgGrp = getGrpAtTime(person_stat, moveTime_from);
+		int srcLoc = getGrpIndex(orgGrp)[1];
+		int newLoc = getGrpIndex(newGrp)[1];
+
+		if (srcLoc != newLoc) {
+			((ArrayList<Integer>) person_stat[POP_INDEX_META_LOC_MOVE_AT]).add(moveTime);
+			((ArrayList<Integer>) person_stat[POP_INDEX_META_LOC_TARGET]).add(newLoc);
+			if (schedule_move_loc != null) {
+				ArrayList<int[]> move_schedule_at = schedule_move_loc.get(moveTime);
+				if (move_schedule_at == null) {
+					move_schedule_at = new ArrayList<>();
+					schedule_move_loc.put(moveTime, move_schedule_at);
+				}
+				move_schedule_at.add(new int[] { move_pid, newLoc });
+			} else {
+				System.err.println("Warning! schedule_move_loc not found.");
 			}
-			ArrayList<Integer> target_grp_sorted = active_in_pop.get(newGrp);
-			aI = Collections.binarySearch(target_grp_sorted, move_pid);
-			if (aI < 0) {
-				target_grp_sorted.add(~aI, move_pid);
-			}
-		} else {
-			System.err.println("Warning! active_in_pop not found.");
-
 		}
+	}
 
-		if (schedule_move_grp != null) {
-			int nextMoveTime = (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT];
-			ArrayList<Integer> move_grp_pids = schedule_move_grp.get(nextMoveTime);
-			if (move_grp_pids == null) {
-				move_grp_pids = new ArrayList<>();
-				schedule_move_grp.put(nextMoveTime, move_grp_pids);
-			}
-			aI = Collections.binarySearch(move_grp_pids, move_pid);
-			if (aI < 0) {
-				move_grp_pids.add(~aI, move_pid);
-			}
-		} else {
-			System.err.println("Warning! schedule_move_grp not found.");
-		}
+	@SuppressWarnings("unchecked")
+	private int getGrpAtTime(Object[] person_stat, int time) {
+		int time_diff = time - (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AT];
+		int age = time_diff + (int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_ENTER_POP_AGE];
+		int[] gla = getGrpIndex((int) person_stat[Abstract_Runnable_ClusterModel.POP_INDEX_GRP]);
 
-		if (pop_stat_moveGrp != null) {
-			int srcLoc = getGrpIndex(orgGrp)[1];
-			int newLoc = getGrpIndex(newGrp)[1];
-			if (srcLoc != newLoc) {
-				pop_stat_moveGrp.add(new int[] { moveTime, move_pid, srcLoc, newLoc });
+		// Location
+		ArrayList<Integer> loc_schedule = (ArrayList<Integer>) person_stat[POP_INDEX_META_LOC_TARGET];
+		ArrayList<Integer> loc_moveAt = (ArrayList<Integer>) person_stat[POP_INDEX_META_LOC_MOVE_AT];
+		if (!loc_moveAt.isEmpty()) {
+			int loc_index = Collections.binarySearch(loc_moveAt, time);
+			if (loc_index < 0) {
+				loc_index = ~loc_index;
 			}
-		} else {
-			System.err.println("Warning! pop_stat_moveGrp not found.");
+			gla[1] = loc_schedule.get(loc_index);
 		}
+		// AGE
+		int age_index = Arrays.binarySearch(helper_ageRange_all, age);
+		if (age_index < 0) {
+			age_index = ~age_index;
+		}
+		gla[2] = age_index;
+
+		return getGrpIndex(gla);
 
 	}
 
 	@SuppressWarnings("unchecked")
-	protected int addNewPerson(HashMap<Integer, Object[]> population, int nextId, Object[] newPerson,
+	protected int addNewPersonToPopulation(HashMap<Integer, Object[]> population, int nextId, Object[] newPerson,
 			HashMap<String, Object> updateObjs) {
-
-		population.put(nextId, newPerson);
-
-		HashMap<Integer, ArrayList<Integer>> schedule_move_grp = (HashMap<Integer, ArrayList<Integer>>) updateObjs
-				.get(UPDATEOBJ_SCHEDULED_MOVEGRP);
+		HashMap<Integer, ArrayList<int[]>> schedule_move_grp = (HashMap<Integer, ArrayList<int[]>>) updateObjs
+				.get(UPDATEOBJ_SCHEDULE_MOVE_GRP);
 		HashMap<Integer, ArrayList<Integer>> active_in_pop = (HashMap<Integer, ArrayList<Integer>>) updateObjs
 				.get(UPDATEOBJ_ACTIVE_IN_POP);
 		ArrayList<Integer> pop_stat_init_ids = (ArrayList<Integer>) updateObjs.get(UPDATEOBJ_POP_STAT_INIT_IDS);
 
-		int aI;
+		population.put(nextId, newPerson);
 
-		// Schedule exit group
+		// Add and Aging
 		if (schedule_move_grp != null) {
-			int exit_grp_time = (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_EXIT_POP_AT];
-			ArrayList<Integer> move_grp_pids_sorted = schedule_move_grp.get(exit_grp_time);
-			if (move_grp_pids_sorted == null) {
-				move_grp_pids_sorted = new ArrayList<>();
-				schedule_move_grp.put(exit_grp_time, move_grp_pids_sorted);
-			}
-			aI = Collections.binarySearch(move_grp_pids_sorted, nextId);
-			if (aI < 0) {
-				move_grp_pids_sorted.add(~aI, nextId);
-			}
-		} else {
-			System.err.println("Warning! schedule_move_grp not found.");
-		}
+			ArrayList<int[]> move_sch;
+			// Enter pop time
+			int enterTime = (int) newPerson[POP_INDEX_ENTER_POP_AT];
+			move_sch = schedule_move_grp.get(enterTime);
+			if (enterTime != 0) {
+				// Enter on schedule
+				if (move_sch == null) {
+					move_sch = new ArrayList<>();
+					schedule_move_grp.put(enterTime, move_sch);
+				}
+				move_sch.add(new int[] { -nextId });
+			} else {
+				// Enter at init time
+				int init_grp = (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
 
-		// Active by grp
-		if (active_in_pop != null) {
-			int grp_num = (int) newPerson[Abstract_Runnable_ClusterModel.POP_INDEX_GRP];
-			ArrayList<Integer> active_by_grp_sorted = active_in_pop.get(grp_num);
-			if (active_by_grp_sorted == null) {
-				active_by_grp_sorted = new ArrayList<>();
-				active_in_pop.put(grp_num, active_by_grp_sorted);
+				ArrayList<Integer> active_in_pop_by_grp = active_in_pop.get(init_grp);
+				if (active_in_pop_by_grp == null) {
+					active_in_pop_by_grp = new ArrayList<>();
+					active_in_pop.put(init_grp, active_in_pop_by_grp);
+				}
+				active_in_pop_by_grp.add(nextId);
 			}
-			aI = Collections.binarySearch(active_by_grp_sorted, nextId);
-			if (aI < 0) {
-				active_by_grp_sorted.add(~aI, nextId);
+			// Exit Grp time
+			int exitTime = (int) newPerson[POP_INDEX_EXIT_POP_AT];
+			move_sch = schedule_move_grp.get(exitTime);
+			if (move_sch == null) {
+				move_sch = new ArrayList<>();
+				schedule_move_grp.put(exitTime, move_sch);
 			}
-		} else {
-			System.err.println("Warning! active_in_pop not found.");
+			move_sch.add(new int[] { nextId });
 		}
 
 		if (pop_stat_init_ids != null) {
 			pop_stat_init_ids.add(nextId);
-		} else {
-			System.err.println("Warning! pop_stat_init_ids not found.");
 		}
 
 		nextId++;
@@ -520,17 +563,29 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	}
 
 	private int[] getAgeRange(int grpNum) {
-		if (helper_ageRange == null) {
-			helper_ageRange = new HashMap<>();
+		if (helper_ageRange_by_grp == null) {
+			helper_ageRange_by_grp = new HashMap<>();
+			ArrayList<Integer> age_range_all = new ArrayList<>();
 			double[][] ageRanges = (double[][]) getRunnable_fields()[RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST];
 			for (double[] ageRange : ageRanges) {
-				helper_ageRange.put((int) ageRange[0], new int[] { (int) ageRange[1], (int) ageRange[2] });
+				helper_ageRange_by_grp.put((int) ageRange[0], new int[] { (int) ageRange[1], (int) ageRange[2] });
+				for (int i : new int[] { 1, 2 }) {
+					int aI = Collections.binarySearch(age_range_all, (int) ageRange[i]);
+					if (aI < 0) {
+						age_range_all.add(~aI, (int) ageRange[i]);
+					}
+				}
 			}
+			helper_ageRange_all = new int[age_range_all.size()];
+			for (int i = 0; i < helper_ageRange_all.length; i++) {
+				helper_ageRange_all[i] = age_range_all.get(i);
+			}
+
 		}
-		int[] res = helper_ageRange.get(grpNum);
+		int[] res = helper_ageRange_by_grp.get(grpNum);
 		if (res == null) {
-			res = helper_ageRange.get(~(grpNum % NUM_AGE_GRP));
-			helper_ageRange.put(grpNum, res);
+			res = helper_ageRange_by_grp.get(~(grpNum % NUM_AGE_GRP));
+			helper_ageRange_by_grp.put(grpNum, res);
 		}
 		return res;
 	}
