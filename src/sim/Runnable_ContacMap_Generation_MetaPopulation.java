@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -39,14 +40,14 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	// POP_INDEX_HAS_REG_PARTNER_UNTIL = POP_INDEX_EXIT_POP_AT + 1;
 	private static final int POP_INDEX_META_LOC_TARGET = Abstract_Runnable_ClusterModel.LENGTH_POP_ENTRIES;
 	private static final int POP_INDEX_META_LOC_MOVE_AT = POP_INDEX_META_LOC_TARGET + 1;
-	private static final int POP_INDEX_META_PARTNER_HIST = POP_INDEX_META_LOC_MOVE_AT + 1; // int[]{valid_until,
-																							// number_partner_to_seek,
-																							// partner_history};
+	private static final int POP_INDEX_META_PARTNER_HIST = POP_INDEX_META_LOC_MOVE_AT + 1; // See PARTNER_HIST_INDEX_
+																							// ... below
 	private static final int LENGTH_POP_INDEX_META = POP_INDEX_META_PARTNER_HIST + 1;
 
 	private static final int PARTNER_HIST_INDEX_VALID_UNTIL = 0;
 	private static final int PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK = PARTNER_HIST_INDEX_VALID_UNTIL + 1;
-	private static final int PARTNER_HIST_INDEX_HISTORY_START = PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK + 1;
+	private static final int PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL = PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK + 1;
+	private static final int PARTNER_HIST_INDEX_HISTORY_START = PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL + 1;
 
 	private final String UPDATEOBJ_ACTIVE_IN_POP = "active_in_pop";
 	private final String UPDATEOBJ_SCHEDULE_MOVE_GRP = "schedule_move_loc";
@@ -66,9 +67,9 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	private transient HashMap<Integer, int[][]> helper_loc_connection = null; // K = location index, V = {connection_1,
 																				// ...}
 	// {cumul_weight_1,...}
-	private transient HashMap<Integer, float[]> helper_partnership_setting = null; // K = grp_index, V = {time_range,
+	private transient HashMap<Integer, double[]> helper_partnership_setting = null; // K = grp_index, V = {time_range,
 	// number_partner_range, probability}
-	private transient HashMap<Integer, float[]> helper_partner_age_mix = null; // K = grp_index, V =
+	private transient HashMap<Integer, double[]> helper_partner_age_mix = null; // K = grp_index, V =
 																				// {age_index_prob_0,...}
 
 	private static final int HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE = 0;
@@ -293,7 +294,7 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 								aI = Collections.binarySearch(active_in_pop.get(currentGrp), pid);
 								if (aI >= 0) {
-									active_in_pop.get(movement[1]).remove(aI);
+									active_in_pop.get(currentGrp).remove(aI);
 								}
 								if (movement.length == 1) {
 									// Aging
@@ -333,110 +334,142 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 					}
 
 					// Form partnership
-					HashMap<Integer, ArrayList<Integer>> candidate_by_age_male = new HashMap<>();
+					HashMap<Integer, ArrayList<Integer>> candidate_by_age = new HashMap<>();
 
 					for (int loc = 0; loc < NUM_LOC; loc++) {
 						partnership_added.put(loc, new ArrayList<>());
 
 						// Candidate
-						candidate_by_age_male.clear();
+						int[] candidate_hist;
+						candidate_by_age.clear();
+
 						for (int age = 0; age < NUM_AGE_GRP; age++) {
 							int m_index = getGrpIndex(new int[] { 1, loc, age });
-							candidate_by_age_male.put(age, new ArrayList<>(active_in_pop.get(m_index)));
+							double[] partnership_setting_candidate = getNumberParnterSetting(m_index);
+							candidate_by_age.put(age, new ArrayList<>(active_in_pop.get(m_index)));
+
+							Iterator<Integer> candidate_iter = candidate_by_age.get(age).iterator();
+							while (candidate_iter.hasNext()) {
+								int pid_m = candidate_iter.next();
+								Object[] active_m = population.get(pid_m);
+
+								candidate_hist = (int[]) active_m[POP_INDEX_META_PARTNER_HIST];
+								if (candidate_hist == null) {
+									candidate_hist = new int[PARTNER_HIST_INDEX_HISTORY_START
+											+ (int) partnership_setting_candidate[HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE]];
+									active_m[POP_INDEX_META_PARTNER_HIST] = candidate_hist;
+								}
+								if (candidate_hist[PARTNER_HIST_INDEX_VALID_UNTIL] <= snap_start + snap_dur) {
+									updatePersonPartnershipStatus(snap_start, candidate_hist, partnership_setting_candidate);
+								}
+								// Check availability
+								if (candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] <= 0) {
+									candidate_iter.remove();
+								}
+							}
+
 						}
 
 						for (int age = 0; age < NUM_AGE_GRP; age++) {
 							int f_index = getGrpIndex(new int[] { 0, loc, age });
 
-							float[] partnership_setting = getNumberParnterSetting(f_index);
-							float[] age_mix = getAgeMix(f_index);
-							int time_range = (int) partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE];
+							double[] partnership_setting_seeker = getNumberParnterSetting(f_index);
+							double[] age_mix = getAgeMix(f_index);
+							int time_range = (int) partnership_setting_seeker[HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE];
 							AbstractRealDistribution partner_dur_default = generateGammaDistribution(RNG,
 									new double[] {
-											partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_MEAN],
-											partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_SD] }
+											partnership_setting_seeker[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_MEAN],
+											partnership_setting_seeker[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_SD] }
 
 							);
 
 							ArrayList<Integer> active_female = active_in_pop.get(f_index);
 
 							for (int pid : active_female) {
-								Object[] person_stat = population.get(pid);
+								Object[] active_f = population.get(pid);
 
-								int[] partner_hist = (int[]) person_stat[POP_INDEX_META_PARTNER_HIST];
-								if (partner_hist == null) {
+								int[] seeker_hist = (int[]) active_f[POP_INDEX_META_PARTNER_HIST];
+								if (seeker_hist == null) {
 									// int[]{valid_until, number_partner_to_seek, partner_history};
-									partner_hist = new int[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK
-											+ (int) partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE]];
+									seeker_hist = new int[PARTNER_HIST_INDEX_HISTORY_START
+											+ (int) partnership_setting_seeker[HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE]];
 
-									person_stat[POP_INDEX_META_PARTNER_HIST] = partner_hist;
+									active_f[POP_INDEX_META_PARTNER_HIST] = seeker_hist;
 								}
-
-								if (partner_hist[PARTNER_HIST_INDEX_VALID_UNTIL] < snap_start + snap_dur) {
-									// Check if new one need to be set
-									partner_hist[PARTNER_HIST_INDEX_VALID_UNTIL] = snap_start + time_range;
-
-									int numOpt = (partnership_setting.length - 1) / 3;
-									int nPI = Arrays.binarySearch(partnership_setting,
-											HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE + 1,
-											HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE + 1 + numOpt, RNG.nextFloat());
-
-									if (nPI < 0) {
-										nPI = ~nPI;
-									}
-
-									int min_p = (int) partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START
-											+ numOpt + nPI];
-									int range_p = (int) partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START
-											+ 2 * numOpt + nPI] - min_p;
-									partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] = min_p;
-									if (range_p > 0) {
-										partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] += RNG.nextInt(range_p);
-									}
-
-									for (int i = PARTNER_HIST_INDEX_HISTORY_START; i < partner_hist.length
-											&& partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] > 0; i++) {
-										if (partner_hist[i] != 0) {
-											partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]--;
-										}
-									}
+								if (seeker_hist[PARTNER_HIST_INDEX_VALID_UNTIL] <= snap_start + snap_dur) {
+									updatePersonPartnershipStatus(snap_start, seeker_hist, partnership_setting_seeker);
 								}
-								if (partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] > 0) {
-									int numDaysLeft = partner_hist[PARTNER_HIST_INDEX_VALID_UNTIL] - popTime;
+								if (seeker_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] > 0) {
+									int numDaysLeft = seeker_hist[PARTNER_HIST_INDEX_VALID_UNTIL] - popTime;
 									if (RNG.nextInt(
-											numDaysLeft) < partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]) {
-										// Female seeking partners
+											numDaysLeft) < seeker_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]) {
+										
 										int targetAgeGrp = Arrays.binarySearch(age_mix, RNG.nextFloat());
 										if (targetAgeGrp < 0) {
 											targetAgeGrp = ~targetAgeGrp;
 										}
 
-										if (candidate_by_age_male.get(targetAgeGrp).size() > 0) {
+										if (candidate_by_age.get(targetAgeGrp).size() > 0) {
 											// Choose a random candidate
-											int candidate_id = candidate_by_age_male.get(targetAgeGrp)
-													.remove(RNG.nextInt(candidate_by_age_male.size()));
+											int candidate_index = RNG
+													.nextInt(candidate_by_age.get(targetAgeGrp).size());
+											int candidate_id = candidate_by_age.get(targetAgeGrp)
+													.get(candidate_index);
+
+											candidate_hist = (int[]) population
+													.get(candidate_id)[POP_INDEX_META_PARTNER_HIST];
 
 											// Generate duration of partnership
+											int duration;
+											if (seeker_hist[PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL] > popTime
+													|| candidate_hist[PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL] > popTime) {
+												// Still in partnership - casual partnership
+												duration = 1;
+											} else {
+												// Possible long term partnerships
+												AbstractRealDistribution partner_dur = partner_dur_default;
+												
+												int max_partners = Math.max(seeker_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK],
+														candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]);
 
-											AbstractRealDistribution partner_dur = partner_dur_default;
+												if (max_partners > 1) {
+													double mean_dur = numDaysLeft
+															/ (max_partners - 1);
+													double sd_dur = partnership_setting_seeker[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_SD]
+															* mean_dur
+															/ partnership_setting_seeker[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_MEAN];
 
-											if (partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] > 1) {
-												double mean_dur = numDaysLeft
-														/ (partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] - 1);
-												double sd_dur = partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_SD]
-														* mean_dur
-														/ partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_MEAN];
+													partner_dur = generateGammaDistribution(RNG,
+															new double[] { mean_dur, sd_dur });
 
-												partner_dur = generateGammaDistribution(RNG,
-														new double[] { mean_dur, sd_dur });
+												}
 
+												duration = (int) Math.round(partner_dur.sample());
 											}
 
-											int duration = (int) Math.round(partner_dur.sample());
+											// Update candidate (male)
+
+											candidate_hist[PARTNER_HIST_INDEX_HISTORY_START
+													+ (popTime % time_range)] = pid;
+											candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]--;
+											candidate_hist[PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL] = Math.max(
+													(int) candidate_hist[PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL],
+													popTime + duration);
+
+											if (candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] <= 0) {
+												candidate_by_age.get(targetAgeGrp).remove(candidate_index);
+											}
+
+											// Update seeker (female)
+											seeker_hist[PARTNER_HIST_INDEX_HISTORY_START
+													+ (popTime % time_range)] = candidate_id;
+											seeker_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]--;
+											seeker_hist[PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL] = Math.max(
+													(int) seeker_hist[PARTNER_HIST_INDEX_IN_PARTNERSHIP_UNTIL],
+													popTime + duration);
+
 											partnership_added.get(loc)
 													.add(new int[] { pid, candidate_id, popTime, duration });
-
-											partner_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]--;
 
 										}
 
@@ -507,18 +540,17 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 					// Print edge array
 					if (partnership_added.isEmpty()) {
 						for (Entry<Integer, ArrayList<int[]>> ent : partnership_added.entrySet()) {
-							tarFile = getTargetFile(String.format(MAPFILE_FORMAT, ent.getKey() ,mapSeed));							
+							tarFile = getTargetFile(String.format(MAPFILE_FORMAT, ent.getKey(), mapSeed));
 							boolean append = tarFile.exists();
 							pWri = new PrintWriter(new FileWriter(tarFile, append));
-							if (!append) {								
+							if (!append) {
 								pWri.println("P1,P2,START_TIME,DURATION");
-							}							
-							for(int[] partnership : ent.getValue()) {
-								String strRaw = Arrays.toString(partnership);								
-								pWri.println(strRaw.substring(1,strRaw.length()-1)); // Exclude [ ] at the end
 							}
-							
-							
+							for (int[] partnership : ent.getValue()) {
+								String strRaw = Arrays.toString(partnership);
+								pWri.println(strRaw.substring(1, strRaw.length() - 1)); // Exclude [ ] at the end
+							}
+
 						}
 
 						partnership_added.clear();
@@ -535,15 +567,42 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 	}
 
-	private float[] getAgeMix(int grp) {
-		float[] age_mix;
+	private void updatePersonPartnershipStatus(int snap_start, int[] candidate_hist, double[] partnership_setting) {
+		candidate_hist[PARTNER_HIST_INDEX_VALID_UNTIL] = snap_start
+				+ (int) partnership_setting[HELPER_NUM_PARTNERSHIP_SETTING_TIME_RANGE];
+
+		int numOpt = (partnership_setting.length - HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START) / 3;
+		int nPI = Arrays.binarySearch(partnership_setting, HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START,
+				HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START + numOpt, RNG.nextFloat());
+
+		if (nPI < 0) {
+			nPI = ~nPI;
+		}
+
+		int min_p = (int) partnership_setting[numOpt + nPI];
+		int range_p = (int) partnership_setting[2 * numOpt + nPI] - min_p;
+		candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] = min_p;
+		if (range_p > 0) {
+			candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] += RNG.nextInt(range_p);
+		}
+
+		for (int i = PARTNER_HIST_INDEX_HISTORY_START; i < candidate_hist.length
+				&& candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK] > 0; i++) {
+			if (candidate_hist[i] != 0) {
+				candidate_hist[PARTNER_HIST_INDEX_NUM_PARTNER_TO_SEEK]--;
+			}
+		}
+	}
+
+	private double[] getAgeMix(int grp) {
+		double[] age_mix;
 		if (helper_partner_age_mix == null) {
 			helper_partner_age_mix = new HashMap<>();
-			float[][] age_mix_ent = (float[][]) getRunnable_fields()[RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING];
+			double[][] age_mix_ent = (double[][]) getRunnable_fields()[RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING];
 
-			for (float[] numPartnerEnt : age_mix_ent) {
+			for (double[] numPartnerEnt : age_mix_ent) {
 				int grpNum = (int) numPartnerEnt[0];
-				float[] ent = Arrays.copyOfRange(numPartnerEnt, 1, numPartnerEnt.length);
+				double[] ent = Arrays.copyOfRange(numPartnerEnt, 1, numPartnerEnt.length);
 				for (int i = 1; i < ent.length; i++) {
 					ent[i] = ent[i - 1] + ent[i];
 				}
@@ -782,28 +841,31 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 
 	}
 
-	private float[] getNumberParnterSetting(int grp) {
+	private double[] getNumberParnterSetting(int grp) {
 		if (helper_partnership_setting == null) {
 			helper_partnership_setting = new HashMap<>();
-			float[][] numPartnerEnts = (float[][]) getRunnable_fields()[RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP];
+			double[][] numPartnerEnts = (double[][]) getRunnable_fields()[RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP];
 
-			for (float[] numPartnerEnt : numPartnerEnts) {
+			for (double[] numPartnerEnt : numPartnerEnts) {
 				// Format:
-				// {AGE_GRP (or ~(grpNum % NUM_AGE_GRP)), time_range, Probability_0..,
-				// Min_Partner_0..., Max_Partner_0, ...}
+				// {AGE_GRP (or ~(grpNum % NUM_AGE_GRP)), time_range,
+				// duration_mean, duration_sd,
+				// Probability_0.., Min_Partner_0..., Max_Partner_0, ...}
 				int grpNum = (int) numPartnerEnt[0];
-				float[] ent = Arrays.copyOfRange(numPartnerEnt, 1, numPartnerEnt.length);
-				int num_opt = (ent.length - 1) % 3;
+				double[] ent = Arrays.copyOfRange(numPartnerEnt, 1, numPartnerEnt.length);
+				int num_opt = (ent.length - HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START) / 3;
 
-				for (int i = 2; i < num_opt; i++) {
-					ent[i] = ent[i - 1] + ent[i];
+				for (int i = 1; i < num_opt; i++) {
+					ent[HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START
+							+ i] = ent[HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START + i - 1]
+									+ ent[HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START + i];
 				}
 				helper_partnership_setting.put(grpNum, ent);
 			}
 
 		}
 
-		float[] number_partner_setting = helper_partnership_setting.get(grp);
+		double[] number_partner_setting = helper_partnership_setting.get(grp);
 		if (number_partner_setting == null) {
 			number_partner_setting = helper_partnership_setting.get(~(grp % NUM_AGE_GRP)); // By age
 			helper_partnership_setting.put(grp, number_partner_setting);
