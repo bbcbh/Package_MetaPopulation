@@ -90,7 +90,7 @@ public class Simulation_RMP extends Simulation_ClusterModelTransmission {
 			}
 
 		} else {
-			Simulation_ClusterModelTransmission.launch(args);
+			Simulation_ClusterModelTransmission.launch(args, new Simulation_RMP());
 		}
 	}
 
