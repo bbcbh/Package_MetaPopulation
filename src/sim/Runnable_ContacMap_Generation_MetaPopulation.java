@@ -16,8 +16,6 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
 
-import relationship.ContactMap;
-
 public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_ClusterModel_ContactMap_Generation_MultiMap {
 
 	private static final Pattern pattern_propName = Pattern.compile("RMP_MultMap_(\\d+)_(\\d+)_(\\d+)");
@@ -113,8 +111,7 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	public void run() {
 		if (NUM_GENDER + NUM_LOC + NUM_AGE_GRP > 0) {
 			HashMap<Integer, Object[]> population = new HashMap<>();
-			int[] contactMapValidRange = (int[]) runnable_fields[RUNNABLE_FIELD_CONTACT_MAP_GEN_VALID_RANGE];
-			final long exportFreq = (long) runnable_fields[RUNNABLE_FILED_EXPORT_FREQ];
+			int[] contactMapValidRange = (int[]) runnable_fields[RUNNABLE_FIELD_CONTACT_MAP_GEN_VALID_RANGE];			
 			int[] numInGrp = (int[]) runnable_fields[RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_NUMBER_OF_GRP];
 
 			int popTime = contactMapValidRange[0];
