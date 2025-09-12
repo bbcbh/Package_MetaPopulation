@@ -31,13 +31,14 @@ public class Runnable_Demographic_Generation implements Runnable {
 	public static final String FILE_HEADER_MOVEMENT = "TIME,PID,LOC_FROM,LOC_TO";
 
 	// K = PID, V = int[]{enter_pop_at, exit_pop_at, enter_pop_age, enter_grp,
-	// home_location, current_grp}
+	// home_location, current_grp,  current_loc}
 	public static final int INDEX_MAP_INDIV_ENTER_AT = 0;
 	public static final int INDEX_MAP_INDIV_EXIT_AT = INDEX_MAP_INDIV_ENTER_AT + 1;
 	public static final int INDEX_MAP_INDIV_ENTER_AGE = INDEX_MAP_INDIV_EXIT_AT + 1;
 	public static final int INDEX_MAP_INDIV_ENTER_GRP = INDEX_MAP_INDIV_EXIT_AT + 1;
 	public static final int INDEX_MAP_INDIV_ENTER_LOC = INDEX_MAP_INDIV_ENTER_GRP + 1;
 	public static final int INDEX_MAP_INDIV_CURRENT_GRP = INDEX_MAP_INDIV_ENTER_AGE + 1;
+	public static final int INDEX_MAP_INDIV_CURRENT_LOC = INDEX_MAP_INDIV_CURRENT_GRP + 1;
 	public static final int LENGTH_MAP_INDIV = INDEX_MAP_INDIV_CURRENT_GRP + 1;
 
 	// 1: RUNNABLE_FIELD_CONTACT_MAP_LOCATION_TOTAL_POP_SIZE
@@ -138,6 +139,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 					indiv_ent[INDEX_MAP_INDIV_ENTER_AGE] = age_range[0] + RNG.nextInt(age_range[1] - age_range[0]);
 					indiv_ent[INDEX_MAP_INDIV_ENTER_GRP] = g;
 					indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = g;
+					indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] = pop_id;
 					map_indiv.put(nextId, indiv_ent);
 
 					HashMap<Integer, ArrayList<Integer>> map_group_member = map_group_member_by_pop.get(pop_id);
@@ -172,6 +174,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 							.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
 					grpPids.remove(Collections.binarySearch(grpPids, pid));
 					indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = -1;
+					indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] = -1;
 				} else {
 					// Age to next group
 					if (currentAge >= map_group_age_range.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP])[1]) {
@@ -201,7 +204,8 @@ public class Runnable_Demographic_Generation implements Runnable {
 							int remove_pid = grpPids.remove(RNG.nextInt(grpPids.size()));
 							int[] indiv_ent = map_indiv.get(remove_pid);
 							indiv_ent[INDEX_MAP_INDIV_EXIT_AT] = currentTime;
-							indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = -1;							
+							indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = -1;
+							indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] = -1;
 						} else if (grpPids.size() < gSize) {
 							// Add individuals from group																				
 							grpPids.add(~Collections.binarySearch(grpPids, nextId), nextId);							
@@ -212,6 +216,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 							indiv_ent[INDEX_MAP_INDIV_ENTER_AGE] = map_group_age_range.get(g)[0];
 							indiv_ent[INDEX_MAP_INDIV_ENTER_GRP] = g;
 							indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = g;
+							indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] = pop_id;
 							map_indiv.put(nextId, indiv_ent);																																			
 							nextId++;							
 						}											
@@ -229,7 +234,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 			try {
 				PrintWriter pWri = map_demographic_priWri.get(homeLoc);
 				if (pWri == null) {
-					pWri = new PrintWriter(new File(String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed)));
+					pWri = new PrintWriter(new File(baseDir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed)));
 					map_demographic_priWri.put(homeLoc, pWri);
 					pWri.println(FILE_HEADER_DEMOGRAPHIC);
 				}
