@@ -16,9 +16,17 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
 
-public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_ClusterModel_ContactMap_Generation_MultiMap {
+/**
+ * Generate Meta_Population with network defined directly in population file. 
+ * 
+ * For more complex network, use Runnable_ContactMap_Generation_LocationMap instead.
+ * 
+ * @see Runnable_ContactMap_Generation_LocationMap_IREG
+ */
 
-	private static final Pattern pattern_propName = Pattern.compile("RMP_MultMap_(\\d+)_(\\d+)_(\\d+)");
+public class Runnable_ContactMap_Generation_MetaPopulation extends Runnable_ClusterModel_ContactMap_Generation_MultiMap {
+
+	public static final Pattern pattern_propName = Pattern.compile("RMP_MultMap_(\\d+)_(\\d+)_(\\d+)");
 
 	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING = Runnable_ClusterModel_ContactMap_Generation_MultiMap.LENGTH_RUNNABLE_MAP_GEN_FIELD;
 	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_LOC_CONNECTIONS = RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING
@@ -78,7 +86,7 @@ public class Runnable_ContacMap_Generation_MetaPopulation extends Runnable_Clust
 	private static final int HELPER_NUM_PARTNERSHIP_SETTING_NUM_PARTNER_RANGE_START = HELPER_NUM_PARTNERSHIP_SETTING_DEFAULT_DURATION_SD
 			+ 1;
 
-	public Runnable_ContacMap_Generation_MetaPopulation(long mapSeed, Properties loadedProperties) {
+	public Runnable_ContactMap_Generation_MetaPopulation(long mapSeed, Properties loadedProperties) {
 		super(mapSeed);
 		this.runnable_fields = Arrays.copyOf(this.runnable_fields, LENGTH_RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN);
 		// Load properties

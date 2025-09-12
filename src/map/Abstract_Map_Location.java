@@ -8,7 +8,7 @@ import java.util.HashMap;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedWeightedGraph;
 
-public class Map_Location extends SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> {
+public abstract class Abstract_Map_Location extends SimpleDirectedWeightedGraph<Integer, DefaultWeightedEdge> {
 
 	private static final long serialVersionUID = 5729842599305619354L;	
 	
@@ -21,7 +21,7 @@ public class Map_Location extends SimpleDirectedWeightedGraph<Integer, DefaultWe
 	public static final Class<String> NODE_INFO_NAME_CLASS = String.class;	
 	
 		
-	public Map_Location() {
+	public Abstract_Map_Location() {
 		super(DefaultWeightedEdge.class);		
 	}	
 	
@@ -58,4 +58,7 @@ public class Map_Location extends SimpleDirectedWeightedGraph<Integer, DefaultWe
 			}
 		}
 	}
+	
+	public abstract void exportNodeInfoToString(PrintWriter pwri_nodeInfo) throws IOException;
+	public abstract void importNodeInfoFromString(BufferedReader reader) throws IOException;
 }

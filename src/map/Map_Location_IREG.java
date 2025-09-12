@@ -6,7 +6,7 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
-public class Map_Location_IREG extends Map_Location {
+public class Map_Location_IREG extends Abstract_Map_Location {
 	private static final long serialVersionUID = -5125249131068160422L;
 
 	public static final String nodeInfo_header = "POP_ID,Name"
@@ -54,7 +54,7 @@ public class Map_Location_IREG extends Map_Location {
 					info = new HashMap<>();
 					getNode_info().put(id, info);
 				}
-				info.put(Map_Location.NODE_INFO_NAME, ent[INDEX_NAME]);
+				info.put(Abstract_Map_Location.NODE_INFO_NAME, ent[INDEX_NAME]);
 				int[] pop_size = new int[headerTxt.length-2];
 				for (int i = 0; i < pop_size.length; i++) {
 					pop_size[i] = Integer.parseInt(ent[i+2]);
