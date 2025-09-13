@@ -13,7 +13,7 @@ public class Map_Location_IREG extends Abstract_Map_Location {
 			+ ",M_15-19_I,M_20-24_I,M_25-29_I,M_30-34_I,M_35-39_I"
 			+ ",F_15-19_I,F_20-24_I,F_25-29_I,F_30-34_I,F_35-39_I"
 			+ ",M_15-19_N,M_20-24_N,M_25-29_N,M_30-34_N,M_35-39_N"
-			+ ",M_15-19_N,M_20-24_N,M_25-29_N,M_30-34_N,M_35-39_N";
+			+ ",F_15-19_N,F_20-24_N,F_25-29_N,F_30-34_N,F_35-39_N";
 
 	public static final int INDEX_POP_ID = 0;
 	public static final int INDEX_NAME = 1;	
