@@ -9,17 +9,16 @@ import java.util.Map.Entry;
 public class Map_Location_IREG extends Abstract_Map_Location {
 	private static final long serialVersionUID = -5125249131068160422L;
 
-	public static final String nodeInfo_header = "POP_ID,Name"
-			+ ",M_15-19_I,M_20-24_I,M_25-29_I,M_30-34_I,M_35-39_I"
+	public static final String nodeInfo_header = "POP_ID,Name" + ",M_15-19_I,M_20-24_I,M_25-29_I,M_30-34_I,M_35-39_I"
 			+ ",F_15-19_I,F_20-24_I,F_25-29_I,F_30-34_I,F_35-39_I"
 			+ ",M_15-19_N,M_20-24_N,M_25-29_N,M_30-34_N,M_35-39_N"
 			+ ",F_15-19_N,F_20-24_N,F_25-29_N,F_30-34_N,F_35-39_N";
 
 	public static final int INDEX_POP_ID = 0;
-	public static final int INDEX_NAME = 1;	
+	public static final int INDEX_NAME = 1;
 
-	public static final String NODE_INFO_POP_SIZE = "NODE_INFO_POP_SIZE";
-	public static final Class<int[]> NODE_INFO_POP_SIZE_CLASS = int[].class;
+	public static final String NODE_INFO_POP_SIZE = "NODE_INFO_POP_SIZE";	
+	public static final String NODE_INFO_AWAY = "NODE_INFO_AWAY";	
 
 	public void exportNodeInfoToString(PrintWriter pwri_nodeInfo) {
 		pwri_nodeInfo.println(nodeInfo_header);
@@ -30,21 +29,34 @@ public class Map_Location_IREG extends Abstract_Map_Location {
 			nodeInfoStr.append(entry.getKey());
 			nodeInfoStr.append(',');
 			nodeInfoStr.append(nodename);
-			for(int val : popSize) {
+			for (int val : popSize) {
 				nodeInfoStr.append(',');
 				nodeInfoStr.append(val);
-			}						
-			
+			}
+
 			pwri_nodeInfo.println(nodeInfoStr.toString());
 		}
 	}
 
 	public void importNodeInfoFromString(BufferedReader reader) throws IOException {
-		String line;
-		String[] headerTxt = nodeInfo_header.split(",");
 		if (getNode_info() == null) {
 			setNode_info(new HashMap<>());
 		}
+		fillNodeInfoFromString(reader, NODE_INFO_POP_SIZE);
+	}
+
+	public void importAwayInfoFromString(BufferedReader reader) throws IOException {
+		if (getNode_info() == null) {
+			setNode_info(new HashMap<>());
+		}
+		fillNodeInfoFromString(reader,NODE_INFO_AWAY);
+	}
+
+	private void fillNodeInfoFromString(BufferedReader reader, String mapType)
+			throws IOException {
+		String line;
+		String[] headerTxt = nodeInfo_header.split(",");
+
 		while ((line = reader.readLine()) != null) {
 			if (!line.equals(nodeInfo_header)) {
 				String[] ent = line.split(",");
@@ -54,17 +66,25 @@ public class Map_Location_IREG extends Abstract_Map_Location {
 					info = new HashMap<>();
 					getNode_info().put(id, info);
 				}
-				info.put(Abstract_Map_Location.NODE_INFO_NAME, ent[INDEX_NAME]);
-				int[] pop_size = new int[headerTxt.length-2];
-				for (int i = 0; i < pop_size.length; i++) {
-					pop_size[i] = Integer.parseInt(ent[i+2]);
-				}
-				info.put(NODE_INFO_POP_SIZE, pop_size);
-
+				info.put(Abstract_Map_Location.NODE_INFO_NAME, ent[INDEX_NAME]);				
+				if (NODE_INFO_POP_SIZE.equals(mapType)) {
+					int[] intVal = new int[headerTxt.length - 2];
+					for (int i = 0; i < intVal.length; i++) {
+						intVal[i] = Integer.parseInt(ent[i + 2]);
+					}
+					info.put(mapType, intVal);
+				}else {
+					float[] floatVal = new float[headerTxt.length - 2];
+					for (int i = 0; i < floatVal.length; i++) {
+						floatVal[i] = Float.parseFloat(ent[i + 2]);
+					}
+					info.put(mapType, floatVal);
+				}			
 			}
 
 		}
 
 	}
 
+	
 }

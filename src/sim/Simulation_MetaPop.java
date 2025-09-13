@@ -76,15 +76,22 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 						Runnable_Demographic_Generation.RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH)));
 				File file_nodeInfo = new File(file_map.getParent(), String.format("%s_NoteInfo.csv",
 						file_map.getName().substring(0, file_map.getName().length() - 4)));
+				
+				File file_awayPercent = new File(file_map.getParent(), String.format("%s_Away.csv",
+						file_map.getName().substring(0, file_map.getName().length() - 4)));
 
 				BufferedReader reader_map = new BufferedReader(new FileReader(file_map));
 				BufferedReader reader_nodeinfo = new BufferedReader(new FileReader(file_nodeInfo));
+				BufferedReader reader_away = new BufferedReader(new FileReader(file_awayPercent));
 
 				shared_loc_map.importConnectionsFromString(reader_map);
-				shared_loc_map.importNodeInfoFromString(reader_nodeinfo);
-
+				shared_loc_map.importNodeInfoFromString(reader_nodeinfo);	
+				((Map_Location_IREG) shared_loc_map).importAwayInfoFromString(reader_away);				
+				
 				reader_map.close();
 				reader_nodeinfo.close();
+				reader_away.close();				
+				
 				loadedProperties.put(Simulation_MetaPop.PROP_LOC_MAP, shared_loc_map);
 
 				for (String cMapStr : cMap_seeds) {

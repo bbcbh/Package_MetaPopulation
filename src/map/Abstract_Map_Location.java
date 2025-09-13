@@ -18,7 +18,7 @@ public abstract class Abstract_Map_Location extends SimpleDirectedWeightedGraph<
 	private HashMap<Integer, HashMap<String, Object>> node_info;
 	
 	public static final String NODE_INFO_NAME = "NODE_INFO_NAME"; 	
-	public static final Class<String> NODE_INFO_NAME_CLASS = String.class;	
+	
 	
 		
 	public Abstract_Map_Location() {
