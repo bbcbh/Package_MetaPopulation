@@ -3,7 +3,6 @@ package sim;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -44,14 +43,25 @@ public class Runnable_Demographic_Generation implements Runnable {
 	public static final int INDEX_MAP_INDIV_CURRENT_LOC = INDEX_MAP_INDIV_CURRENT_GRP + 1;
 	public static final int LENGTH_MAP_INDIV = INDEX_MAP_INDIV_CURRENT_GRP + 1;
 
-	// 1: RUNNABLE_FIELD_CONTACT_MAP_LOCATION_TOTAL_POP_SIZE
-	// Total pop size
-	public static final int RUNNABLE_FIELD_CONTACT_MAP_LOCATION_TOTAL_POP_SIZE = Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_INT_SETTING;
+	// 1: RUNNABLE_FIELD_INT_SETTING
+	public static final int RUNNABLE_FIELD_INT_SETTING = Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_INT_SETTING;
+	public static final int INT_SETTING_TOTAL_POP_SIZE = 0;
+	public static final int INT_SETTING_AWAY_DAYS_MIN = INT_SETTING_TOTAL_POP_SIZE + 1;
+	public static final int INT_SETTING_AWAY_DAYS_RANGE = INT_SETTING_AWAY_DAYS_MIN + 1;
 
 	// 2: RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH
 	// Format: File path. Noted that it assumes node info will be
 	// filename_NoteInfo.csv
 	public static final int RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH = Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_NUMBER_OF_GRP;
+
+	// Same as Runnable_ClusterModel_ContactMap_Generation_MultiMap
+	// 3: RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST
+	public static final int RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST = Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST;
+	// 4: RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP
+	public static final int RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP = Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP;
+	// 5: RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING
+	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING = RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP
+			+ 1;
 
 	public Runnable_Demographic_Generation(long mapSeed, Properties loadedProperties) {
 		this.loadedProperties = loadedProperties;
@@ -72,6 +82,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 		int nextId = 1;
 		int currentTime = 0;
 
+		// Properties
 		int max_time = Integer.parseInt(
 				loadedProperties.getProperty(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
 				* Integer.parseInt(loadedProperties
@@ -82,57 +93,69 @@ public class Runnable_Demographic_Generation implements Runnable {
 				Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST)),
 				int[][].class);
 
+		int[] intSetting = (int[]) util.PropValUtils.propStrToObject(
+				loadedProperties.getProperty(String.format("%s%d",
+						Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX, RUNNABLE_FIELD_INT_SETTING)),
+				int[].class);
+
 		// Key = POP_ID
-		HashMap<Integer, PrintWriter> map_demographic_priWri = new HashMap<>();
-		// Key = POPSRC_POPTAR
-		HashMap<String, StringBuilder> map_movement_strBuilder = new HashMap<>();
+		HashMap<Integer, HashMap<String, Object>> node_info = loc_map.getNode_info();
 		// Key = POP_ID, Value = Map(Grp, ArrayList<> pids)
 		HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> map_group_member_by_pop = new HashMap<>();
+		// Key = POPSRC_POPTAR
+		HashMap<String, StringBuilder> map_movement_strBuilder = new HashMap<>();
+
 		// Key = Time, Value = ArrayList(pids)
 		HashMap<Integer, ArrayList<Integer>> map_indivdual_return = new HashMap<>();
 		// Key = PID
 		HashMap<Integer, int[]> map_indiv = new HashMap<>();
 		// Key = Group
 		HashMap<Integer, int[]> map_group_age_range = new HashMap<>();
-		
-		// Key = POP_ID
+
+		// Lookup all have Key = POP_ID
 		HashMap<Integer, int[]> lookup_edge_target_array = new HashMap<>();
 		HashMap<Integer, double[]> lookup_edge_weight_array = new HashMap<>();
+		HashMap<Integer, Integer> lookup_pop_size_all_grps = new HashMap<>();
+
 		
 		
-		HashMap<Integer, HashMap<String, Object>> node_info = loc_map.getNode_info();
+		// Population id
 		Integer[] pop_id_arr = node_info.keySet().toArray(new Integer[0]);
 		Arrays.sort(pop_id_arr);
 
-		int model_pop_size = Integer.parseInt(loadedProperties
-				.getProperty(String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
-						RUNNABLE_FIELD_CONTACT_MAP_LOCATION_TOTAL_POP_SIZE)));
+		int model_pop_size = intSetting[INT_SETTING_TOTAL_POP_SIZE];
 		float total_pop_size = 0;
-		
-		
-		// Movement - away						
+
+		// Pop size
 		for (Integer pop_id : pop_id_arr) {
-			int[] pop_size = (int[]) node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_POP_SIZE);	
-			for (int g = 0; g < pop_size.length; g++) {					
-				total_pop_size += pop_size[g];
+			int[] pop_size_by_grps = (int[]) node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_POP_SIZE);
+			int pop_all_grps = 0;
+			for (int g = 0; g < pop_size_by_grps.length; g++) {
+				pop_all_grps += pop_size_by_grps[g];
 			}
-			
+			lookup_pop_size_all_grps.put(pop_id, pop_all_grps);
+			total_pop_size += pop_all_grps;
+		}
+
+		// Set edge weight
+		for (Integer pop_id : pop_id_arr) {
 			Set<DefaultWeightedEdge> connections = loc_map.edgesOf(pop_id);
 			int[] target_pop = new int[connections.size()];
-			double[] edge_weight =  new double[connections.size()];
+			double[] edge_weight = new double[connections.size()];
 			double weight_offset = 0;
 			int weight_pt = 0;
-			for(DefaultWeightedEdge connc : connections) {										
+			for (DefaultWeightedEdge connc : connections) {
 				target_pop[weight_pt] = loc_map.getEdgeTarget(connc);
-				weight_offset += loc_map.getEdgeWeight(connc);
+				// Assume to be proportional to target population size if > 0, or direct weight
+				// if < 0
+				weight_offset += loc_map.getEdgeWeight(connc) >= 0
+						? loc_map.getEdgeWeight(connc) * lookup_pop_size_all_grps.get(target_pop[weight_pt])
+						: -loc_map.getEdgeWeight(connc);
 				edge_weight[weight_pt] = weight_offset;
-				weight_pt ++;
-			}			
+				weight_pt++;
+			}
 			lookup_edge_target_array.put(pop_id, target_pop);
 			lookup_edge_weight_array.put(pop_id, edge_weight);
-			
-			
-			
 		}
 
 		// Initialise population
@@ -140,8 +163,8 @@ public class Runnable_Demographic_Generation implements Runnable {
 		int maxAge = 0;
 		ArrayList<Integer> grpPids;
 		for (Integer pop_id : pop_id_arr) {
-			int[] pop_size = (int[]) node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_POP_SIZE);
-			for (int g = 0; g < pop_size.length; g++) {
+			int[] pop_size_by_grps = (int[]) node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_POP_SIZE);
+			for (int g = 0; g < pop_size_by_grps.length; g++) {
 				int[] age_range = null;
 				for (int[] test_range : age_dist) {
 					if (test_range.length == 3 && test_range[0] == g) {
@@ -163,7 +186,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 				maxAge = Math.max(maxAge, age_range[1]);
 
 				int numPersonInGrp = 0;
-				while (numPersonInGrp < Math.round(model_pop_size * pop_size[g] / total_pop_size)) {
+				while (numPersonInGrp < Math.round(model_pop_size * pop_size_by_grps[g] / total_pop_size)) {
 					int[] indiv_ent = new int[LENGTH_MAP_INDIV];
 					indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] = pop_id;
 					indiv_ent[INDEX_MAP_INDIV_ENTER_AT] = currentTime;
@@ -223,11 +246,11 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 			// Add new individuals
 			for (Integer pop_id : pop_id_arr) {
-				int[] pop_size = (int[]) node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_POP_SIZE);
+				int[] pop_size_by_grps = (int[]) node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_POP_SIZE);
 				Integer[] grpArray = map_group_member_by_pop.get(pop_id).keySet().toArray(new Integer[0]);
 				Arrays.sort(grpArray);
-				for (int g = 0; g < pop_size.length; g++) {
-					int gSize = Math.round(model_pop_size * pop_size[g] / total_pop_size);
+				for (int g = 0; g < pop_size_by_grps.length; g++) {
+					int gSize = Math.round(model_pop_size * pop_size_by_grps[g] / total_pop_size);
 					grpPids = map_group_member_by_pop.get(pop_id).get(g);
 					while (grpPids.size() != gSize) {
 						if (grpPids.size() > gSize) {
@@ -251,9 +274,9 @@ public class Runnable_Demographic_Generation implements Runnable {
 							map_indiv.put(nextId, indiv_ent);
 							nextId++;
 						}
-					}				
+					}
 				}
-				// Movement - Return home				
+				// Movement - Return home
 				ArrayList<Integer> return_home_pids = map_indivdual_return.get(currentTime);
 				if (return_home_pids != null) {
 					for (Integer return_pid : return_home_pids) {
@@ -261,97 +284,77 @@ public class Runnable_Demographic_Generation implements Runnable {
 						if (indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] != -1) {
 							int move_src = indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC];
 							int move_target = indiv_ent[INDEX_MAP_INDIV_ENTER_LOC];
-							setMovement(currentTime, return_pid, indiv_ent, 
-									move_src, move_target,map_movement_strBuilder);							
+							setMovementAt(currentTime, return_pid, indiv_ent, move_src, move_target,
+									map_movement_strBuilder);
 						}
 					}
 				}
-				
-				
-				
-				
-				
-				float[] num_away_by_grp = (float[])  node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_AWAY);	
-				for (int g = 0; g < pop_size.length; g++) {
+
+				// Movement - Away from home
+				float[] num_away_by_grp = (float[]) node_info.get(pop_id).get(Map_Location_IREG.NODE_INFO_AWAY);
+				for (int g = 0; g < pop_size_by_grps.length; g++) {
 					ArrayList<Integer> pids_at_home = new ArrayList<>();
-					for(Integer home_pid : map_group_member_by_pop.get(pop_id).get(g)) {
+					for (Integer home_pid : map_group_member_by_pop.get(pop_id).get(g)) {
 						int[] indiv_ent = map_indiv.get(home_pid);
-						if(indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] == indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC]) {
+						if (indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] == indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC]) {
 							pids_at_home.add(home_pid);
-						}												
-					}														
-					int num_home_expected =  Math.round(pop_size[g] *(1 - num_away_by_grp[g]/100f));
-					
-					while(pids_at_home.size() > num_home_expected) {
+						}
+					}
+					int num_home_expected = Math.round(pop_size_by_grps[g] * (1 - num_away_by_grp[g] / 100f));
+
+					while (pids_at_home.size() > num_home_expected) {
 						int move_pid = pids_at_home.remove(RNG.nextInt(pids_at_home.size()));
-						// Movement										
-						int[] pop_target =  lookup_edge_target_array.get(pop_id);
+						// Movement
+						int[] pop_target = lookup_edge_target_array.get(pop_id);
 						double[] target_weight = lookup_edge_weight_array.get(pop_id);
-						
-						double pTar = RNG.nextDouble() * target_weight[target_weight.length-1];						
-						int tar_pt = Arrays.binarySearch(target_weight, pTar);						
-						if(tar_pt < 0) {
+
+						double pTar = RNG.nextDouble() * target_weight[target_weight.length - 1];
+						int tar_pt = Arrays.binarySearch(target_weight, pTar);
+						if (tar_pt < 0) {
 							tar_pt = ~tar_pt;
 						}
-						
-						int move_target = pop_target[tar_pt];						
-						setMovement(currentTime, move_pid, map_indiv.get(move_pid), 
-								pop_id, move_target, map_movement_strBuilder);								
-						
-						// TODO: Set return
-						int return_day = currentTime + 7 + RNG.nextInt(7);
-						ArrayList<Integer> ret = map_indivdual_return.get(return_day);
-						if(ret == null) {
-							ret = new ArrayList<>();
+
+						int move_target = pop_target[tar_pt];
+						setMovementAt(currentTime, move_pid, map_indiv.get(move_pid), pop_id, move_target,
+								map_movement_strBuilder);
+
+						//Set return
+						int return_day = currentTime + intSetting[INT_SETTING_AWAY_DAYS_MIN]  + RNG.nextInt(intSetting[INT_SETTING_AWAY_DAYS_RANGE]);
+						ArrayList<Integer> sch_return = map_indivdual_return.get(return_day);
+						if (sch_return == null) {
+							sch_return = new ArrayList<>();
 						}
-						ret.add(move_pid);
-						
-						
-						
+						sch_return.add(move_pid);
+
 					}
-				
-					
-					
-					
-					
-					
+
 				}
-				
-				
-				
-				
-				
-				
 
 			}
 
 			currentTime++;
 		}
 
+		// Print demographic CSV
 		for (Entry<Integer, int[]> ent : map_indiv.entrySet()) {
 			int homeLoc = ent.getValue()[INDEX_MAP_INDIV_ENTER_LOC];
 			try {
-				PrintWriter pWri = map_demographic_priWri.get(homeLoc);
-				if (pWri == null) {
-					pWri = new PrintWriter(
-							new File(baseDir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed)));
-					map_demographic_priWri.put(homeLoc, pWri);
-					pWri.println(FILE_HEADER_DEMOGRAPHIC);
-				}
+				PrintWriter pWri = new PrintWriter(
+						new File(baseDir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed)));
+				pWri.println(FILE_HEADER_DEMOGRAPHIC);
+
 				pWri.printf("%d,%d,%d,%d,%d\n", ent.getKey(), ent.getValue()[INDEX_MAP_INDIV_ENTER_AT],
 						ent.getValue()[INDEX_MAP_INDIV_EXIT_AT], ent.getValue()[INDEX_MAP_INDIV_ENTER_AGE],
 						ent.getValue()[INDEX_MAP_INDIV_ENTER_GRP]);
 
+				pWri.close();
 			} catch (IOException e) {
 				e.printStackTrace(System.err);
 			}
 
 		}
 
-		// Close PrintWriters
-		for (PrintWriter pWri : map_demographic_priWri.values()) {
-			pWri.close();
-		}
+		// Print movement CSV
 		for (Entry<String, StringBuilder> ent : map_movement_strBuilder.entrySet()) {
 			try {
 				PrintWriter pWri = new PrintWriter(baseDir, String.format(FILE_HEADER_MOVEMENT, ent.getKey(), mapSeed));
@@ -365,8 +368,8 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 	}
 
-	private void setMovement(int move_time, Integer pid, int[] indiv_ent, 
-			int move_src, int move_target,HashMap<String, StringBuilder> map_movement_strBuilder) {
+	private void setMovementAt(int move_time, Integer pid, int[] indiv_ent, int move_src, int move_target,
+			HashMap<String, StringBuilder> map_movement_strBuilder) {
 		indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] = move_target;
 		String move_key = String.format("%d_%d", move_src, move_target);
 		StringBuilder move_str = map_movement_strBuilder.get(move_key);
@@ -374,8 +377,8 @@ public class Runnable_Demographic_Generation implements Runnable {
 		if (move_str == null) {
 			move_str = new StringBuilder();
 			map_movement_strBuilder.put(move_key, move_str);
-		}														
-		move_str.append(String.format("%d,%d", move_time, pid));
+		}
+		move_str.append(String.format("%d,%d\n", move_time, pid));
 	}
 
 }
