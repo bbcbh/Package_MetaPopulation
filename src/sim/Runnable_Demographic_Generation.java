@@ -25,7 +25,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 	private long mapSeed;
 
 	public static final String FILENAME_FORMAT_DEMOGRAPHIC = "Demographic_%d_%d.csv"; // POP_ID, SEED
-	public static final String FILENAME_FORMAT_MOVEMENT = "Movement_%d_%d.csv"; // POP_ID, SEED
+	public static final String FILENAME_FORMAT_MOVEMENT = "Movement_%d_%d_%d.csv"; // POP_ID_SRC, POP_ID_TAR , SEED
 
 	public static final String FILE_HEADER_DEMOGRAPHIC = "PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP";
 	public static final String FILE_HEADER_MOVEMENT = "TIME,PID,LOC_FROM,LOC_TO";
@@ -81,7 +81,8 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 		// Key = POP_ID
 		HashMap<Integer, PrintWriter> map_demographic_priWri = new HashMap<>();
-		HashMap<Integer, PrintWriter> map_movement_priWri = new HashMap<>();
+		HashMap<Integer, PrintWriter> map_movement_priWri = new HashMap<>();		
+		// Key = POP_ID, Value = Map(Grp, ArrayList<> pids) 		
 		HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> map_group_member_by_pop = new HashMap<>();
 		// Key = PID
 		HashMap<Integer, int[]> map_indiv = new HashMap<>();
@@ -147,7 +148,6 @@ public class Runnable_Demographic_Generation implements Runnable {
 						map_group_member = new HashMap<>();
 						map_group_member_by_pop.put(pop_id, map_group_member);
 					}
-
 					grpPids = map_group_member.get(g);
 					if (grpPids == null) {
 						grpPids = new ArrayList<>();
@@ -220,11 +220,23 @@ public class Runnable_Demographic_Generation implements Runnable {
 							map_indiv.put(nextId, indiv_ent);																																			
 							nextId++;							
 						}											
-					}									
-				}
+					}		
+					
+				}		
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
 			}
 
-			// TODO: Movement
+			
 
 			currentTime++;
 		}
