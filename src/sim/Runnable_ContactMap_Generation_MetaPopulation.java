@@ -21,7 +21,7 @@ import org.apache.commons.math3.distribution.AbstractRealDistribution;
  * 
  * For more complex network, use Runnable_ContactMap_Generation_LocationMap instead.
  * 
- * @see Runnable_ContactMap_Generation_LocationMap_IREG
+ * @see Runnable_ContactMap_Generation_Map_Location_Mobility
  */
 
 public class Runnable_ContactMap_Generation_MetaPopulation extends Runnable_ClusterModel_ContactMap_Generation_MultiMap {

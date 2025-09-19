@@ -11,7 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import map.Abstract_Map_Location;
-import map.Map_Location_IREG;
+import map.Map_Location_Mobility;
 
 public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 
@@ -65,12 +65,12 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 				exec = Executors.newFixedThreadPool(numInExec_max);
 			}
 
-			Abstract_Map_Location shared_loc_map = null;
+			Map_Location_Mobility shared_loc_map = null;
 
 			// Generate demographic
-			if (Runnable_ContactMap_Generation_LocationMap_IREG.POP_TYPE
+			if (Runnable_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
 					.equals(loadedProperties.getProperty(PROP_NAME[PROP_POP_TYPE]))) {
-				shared_loc_map = new Map_Location_IREG();
+				shared_loc_map = new Map_Location_Mobility();
 				File file_map = new File(loadedProperties.getProperty(String.format("%s%d",
 						Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 						Runnable_Demographic_Generation.RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH)));
@@ -86,7 +86,7 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 
 				shared_loc_map.importConnectionsFromString(reader_map);
 				shared_loc_map.importNodeInfoFromString(reader_nodeinfo);	
-				((Map_Location_IREG) shared_loc_map).importAwayInfoFromString(reader_away);				
+				shared_loc_map.importAwayInfoFromString(reader_away);				
 				
 				reader_map.close();
 				reader_nodeinfo.close();
@@ -127,11 +127,10 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 			for (String cMapStr : cMap_seeds) {
 				Runnable_ClusterModel_ContactMap_Generation_MultiMap runnable_genMap;
 
-				if (Runnable_ContactMap_Generation_LocationMap_IREG.POP_TYPE
+				if (Runnable_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
 						.equals(loadedProperties.getProperty(PROP_NAME[PROP_POP_TYPE]))) {
 					// TODO: Run multiple population in parallel
-					runnable_genMap = new Runnable_ContactMap_Generation_LocationMap_IREG(Long.parseLong(cMapStr),
-							loadedProperties);
+					runnable_genMap = null;
 				} else {
 					runnable_genMap = new Runnable_ContactMap_Generation_MetaPopulation(Long.parseLong(cMapStr),
 							loadedProperties);

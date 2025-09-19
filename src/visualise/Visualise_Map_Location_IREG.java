@@ -11,11 +11,11 @@ import org.jgrapht.graph.DefaultWeightedEdge;
 import com.mxgraph.model.mxICell;
 import com.mxgraph.util.mxConstants;
 
-import map.Map_Location_IREG;
+import map.Map_Location_Mobility;
 
 public class Visualise_Map_Location_IREG extends JGraphXAdapter<Integer, DefaultWeightedEdge> {
 
-	private final Map_Location_IREG map;
+	private final Map_Location_Mobility map;
 
 	private static final String STYLE_LOC_DEF = "STYLE_LOC_DEF";
 	
@@ -29,7 +29,7 @@ public class Visualise_Map_Location_IREG extends JGraphXAdapter<Integer, Default
 	
 	private static final String[] grpName = new String[] {"M_I","F_I","M_N","F_N"};
 
-	public Visualise_Map_Location_IREG(Map_Location_IREG map_location) {
+	public Visualise_Map_Location_IREG(Map_Location_Mobility map_location) {
 		super(map_location);
 		map = map_location;
 
@@ -47,7 +47,7 @@ public class Visualise_Map_Location_IREG extends JGraphXAdapter<Integer, Default
 		edge_style.put(mxConstants.STYLE_FONTSIZE, 0);
 
 		// Vertex adjustment
-		String[] labels = Map_Location_IREG.nodeInfo_header.split(",");
+		String[] labels = map.nodeInfo_header.split(",");
 		labels = Arrays.copyOfRange(labels, 2, labels.length); // Skip ID and Name
 
 		HashMap<Integer, mxICell> vMap = getVertexToCellMap();
@@ -67,11 +67,11 @@ public class Visualise_Map_Location_IREG extends JGraphXAdapter<Integer, Default
 				nodeDisp.append(vEnt.getKey());
 				nodeDisp.append("</td>");
 				nodeDisp.append("<td>");
-				nodeDisp.append(nodeInfo.get(Map_Location_IREG.NODE_INFO_NAME).toString());
+				nodeDisp.append(nodeInfo.get(Map_Location_Mobility.NODE_INFO_NAME).toString());
 				nodeDisp.append("</td>");
 				nodeDisp.append("</tr>");
 				// Entry
-				int[] popSize = (int[]) nodeInfo.get(Map_Location_IREG.NODE_INFO_POP_SIZE);
+				int[] popSize = (int[]) nodeInfo.get(Map_Location_Mobility.NODE_INFO_POP_SIZE);
 				for (int i = 0; i < grpIndex.length; i++) {
 					nodeDisp.append("<tr>");
 					nodeDisp.append("<td>");
