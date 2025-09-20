@@ -5,7 +5,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -14,10 +18,12 @@ import map.Map_Location_Mobility;
 
 public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 
-	public static final String PROP_BASEDIR = "PROP_BASEDIR";	
+	public static final String PROP_BASEDIR = "PROP_BASEDIR";
 	public static final String PROP_LOC_MAP = "PROP_LOC_MAP";
 	public static final String PROP_PRELOAD_FILES = "PROP_PRELOAD_FILES";
 	public static final String PROP_INDIV_STAT = "PROP_INDIV_STAT";
+	public static final String PROP_PARNTER_EXTRA_SOUGHT = "PROP_PARNTER_EXTRA_SOUGHT";
+	public static final String PROP_CONTACT_MAP_LOC = "PROP_CONTACT_MAP_LOC";
 
 	public static void main(String[] args) throws IOException, InterruptedException {
 		final String USAGE_INFO = String.format(
@@ -67,72 +73,50 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 				exec = Executors.newFixedThreadPool(numInExec_max);
 			}
 
-			Map_Location_Mobility shared_loc_map = null;
-
-			// Generate demographic
-			if (StepWise_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
-					.equals(loadedProperties.getProperty(PROP_NAME[PROP_POP_TYPE]))) {
-				shared_loc_map = new Map_Location_Mobility();
-				File file_map = new File(loadedProperties.getProperty(String.format("%s%d",
-						Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
-						Runnable_Demographic_Generation.RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH)));
-				File file_nodeInfo = new File(file_map.getParent(), String.format("%s_NoteInfo.csv",
-						file_map.getName().substring(0, file_map.getName().length() - 4)));
-				
-				File file_awayPercent = new File(file_map.getParent(), String.format("%s_Away.csv",
-						file_map.getName().substring(0, file_map.getName().length() - 4)));
-
-				BufferedReader reader_map = new BufferedReader(new FileReader(file_map));
-				BufferedReader reader_nodeinfo = new BufferedReader(new FileReader(file_nodeInfo));
-				BufferedReader reader_away = new BufferedReader(new FileReader(file_awayPercent));
-
-				shared_loc_map.importConnectionsFromString(reader_map);
-				shared_loc_map.importNodeInfoFromString(reader_nodeinfo);	
-				shared_loc_map.importAwayInfoFromString(reader_away);				
-				
-				reader_map.close();
-				reader_nodeinfo.close();
-				reader_away.close();				
-				
-				loadedProperties.put(Simulation_MetaPop.PROP_LOC_MAP, shared_loc_map);
-
-				for (String cMapStr : cMap_seeds) {
-					Runnable_Demographic_Generation demo_gen = new Runnable_Demographic_Generation(
-							Long.parseLong(cMapStr), loadedProperties);
-					if (numInExec_max <= 1) {
-						System.out.printf("Generating demographic with seed of %s.\n", cMapStr);
-						demo_gen.run();
-					} else {
-						System.out.printf("Parallel: Generating demographic with seed of %s.\n", cMapStr);
-						if (exec == null) {
-							exec = Executors.newFixedThreadPool(numInExec_max);
-						}
-						exec.submit(demo_gen);
-						numInExec++;
-						if (numInExec == numInExec_max) {
-							exec.shutdown();
-							if (!exec.awaitTermination(2, TimeUnit.DAYS)) {
-								System.err.println("Thread time-out!");
-							}
-							exec = null;
-						}
-					}
-				}
-				if (exec != null) {
-					if (!exec.awaitTermination(2, TimeUnit.DAYS)) {
-						System.err.println("Thread time-out!");
-					}
-				}
-
-			}
+			HashMap<Long, Map_Location_Mobility> map_shared_loc_map = new HashMap<>();
 
 			for (String cMapStr : cMap_seeds) {
-				Runnable_ClusterModel_ContactMap_Generation_MultiMap runnable_genMap;
+				Runnable runnable_genMap;
 
-				if (StepWise_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
+				if (Runnable_ContactMap_Generation_Demographic.POP_TYPE
 						.equals(loadedProperties.getProperty(PROP_NAME[PROP_POP_TYPE]))) {
-					// TODO: Run multiple population in parallel
-					runnable_genMap = null;
+
+					long mapSeed = Long.parseLong(cMapStr);
+					Map_Location_Mobility shared_loc_map = map_shared_loc_map.get(mapSeed);
+
+					if (shared_loc_map == null) {
+						// Generate demographic
+						shared_loc_map = new Map_Location_Mobility();
+						File file_map = new File(loadedProperties.getProperty(
+								String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
+										Runnable_Demographic_Generation.RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH)));
+						File file_nodeInfo = new File(file_map.getParent(), String.format("%s_NoteInfo.csv",
+								file_map.getName().substring(0, file_map.getName().length() - 4)));
+
+						File file_awayPercent = new File(file_map.getParent(), String.format("%s_Away.csv",
+								file_map.getName().substring(0, file_map.getName().length() - 4)));
+						BufferedReader reader_map = new BufferedReader(new FileReader(file_map));
+						BufferedReader reader_nodeinfo = new BufferedReader(new FileReader(file_nodeInfo));
+						BufferedReader reader_away = new BufferedReader(new FileReader(file_awayPercent));
+						shared_loc_map.importConnectionsFromString(reader_map);
+						shared_loc_map.importNodeInfoFromString(reader_nodeinfo);
+						shared_loc_map.importAwayInfoFromString(reader_away);
+						reader_map.close();
+						reader_nodeinfo.close();
+						reader_away.close();
+						map_shared_loc_map.put(mapSeed, shared_loc_map);
+						Runnable_Demographic_Generation run_gen_dem = new Runnable_Demographic_Generation(mapSeed,
+								loadedProperties);
+						run_gen_dem.run();
+					}
+					loadedProperties.put(Simulation_MetaPop.PROP_LOC_MAP, shared_loc_map);
+					loadedProperties.put(Simulation_MetaPop.PROP_PRELOAD_FILES, true);
+					loadedProperties.put(Simulation_MetaPop.PROP_INDIV_STAT, new ConcurrentHashMap<Integer, int[]>());
+					loadedProperties.put(Simulation_MetaPop.PROP_PARNTER_EXTRA_SOUGHT,
+							Collections.synchronizedList(new ArrayList<int[]>()));
+
+					// Run multiple population in parallel
+					runnable_genMap = new Runnable_ContactMap_Generation_Demographic(mapSeed, loadedProperties);
 				} else {
 					runnable_genMap = new Runnable_ContactMap_Generation_MetaPopulation(Long.parseLong(cMapStr),
 							loadedProperties);
@@ -171,15 +155,13 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 		}
 	}
 
-
-
 	@Override
 	public Abstract_Runnable_ClusterModel_Transmission generateDefaultRunnable(long cMap_seed, long sim_seed,
-			Properties loadProperties) {		
+			Properties loadProperties) {
+		Runnable_MetaPopulation_Transmission_Single_Site_Four_Inf run_trans = new Runnable_MetaPopulation_Transmission_Single_Site_Four_Inf(
+				cMap_seed, sim_seed, loadedProperties);
 
-		// TODO: Simulation to be implemented
-
-		return null;
+		return run_trans;
 	}
 
 }

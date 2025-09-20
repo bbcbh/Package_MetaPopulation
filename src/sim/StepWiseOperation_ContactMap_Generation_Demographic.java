@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -20,14 +21,14 @@ import org.apache.commons.math3.distribution.GammaDistribution;
 import person.AbstractIndividualInterface;
 import random.MersenneTwisterRandomGenerator;
 import random.RandomGenerator;
+import util.LineCollectionEntry;
 
 /**
  * For generation of demographic and mobility
  */
 
-public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstract_StepWiseOperation {
+public class StepWiseOperation_ContactMap_Generation_Demographic {
 
-	public static final String POP_TYPE = "MetaPop_By_Location_Mobility";
 	// 2: RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH
 	public static final int RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH = 2;
 	// 3: RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST
@@ -40,32 +41,16 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING = RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP
 			+ 1;
 
-	private Pattern pattern_filename_movement = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
-			.replaceAll("%s", "(\\d+)_(\\d+)").replaceAll("%d", "(-?\\d+)"));
-
-	private Comparator<LineCollectionEntry> movementLineCollectionCmp = new Comparator<LineCollectionEntry>() {
-		@Override
-		public int compare(LineCollectionEntry o1, LineCollectionEntry o2) {
-			Matcher m1 = pattern_filename_movement.matcher(o1.getCsv().getName());
-			Matcher m2 = pattern_filename_movement.matcher(o2.getCsv().getName());
-			int res = 0;
-			if (m1.matches() && m2.matches()) {
-				int grp = 1;
-				while (res == 0 && grp <= Math.min(m1.groupCount(), m2.groupCount())) {
-					res = Long.compare(Long.parseLong(m1.group(grp)), Long.parseLong(m2.group(grp)));
-					grp++;
-				}
-			}
-			return res;
-		}
-	};
-
-	private boolean preloadLines = false;
+	protected boolean preloadLines = false;	
+	protected LineCollectionEntry lines_demographic;
+	protected long mapSeed;
+	protected int popId;
+	protected Properties loadedProperties;
 
 	protected ArrayList<LineCollectionEntry> lines_outflow = new ArrayList<>();
 	protected ArrayList<LineCollectionEntry> lines_inflow = new ArrayList<>();
 	protected int currentTime;
-
+	
 	// Key = PID, V =
 	// ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_AGP,ACTIVIY_GRP,NUM_PARTNER_SEEK,
 	// PARTNER_RECORD
@@ -83,6 +68,7 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 	private static final int INDEX_MAP_INDIV_WINDOW_REFRESH_AT = INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK + 1;
 	private static final int LENGTH_INDEX_MAP_INDIV = INDEX_MAP_INDIV_WINDOW_REFRESH_AT + 1;
 
+	private List<int[]> extraPartner_record;
 	private File baseDir;
 	private RandomGenerator RNG;
 	private int[][] mat_age_range;
@@ -110,16 +96,41 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 	private HashMap<Integer, int[]> lookup_group_age_range = new HashMap<>();
 	// Key = Grp, ArrayList<> pids)
 	private HashMap<Integer, ArrayList<Integer>> map_in_population_by_grp = new HashMap<>();
-	private HashMap<Integer, ArrayList<Integer>> map_available_by_grp = new HashMap<>();
+	private HashMap<Integer, ArrayList<Integer>> map_available_by_grp = new HashMap<>();	
+	
+	private Pattern pattern_filename_movement = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
+			.replaceAll("%s", "(\\d+)_(\\d+)").replaceAll("%d", "(-?\\d+)"));
 
+	private Comparator<LineCollectionEntry> movementLineCollectionCmp = new Comparator<LineCollectionEntry>() {
+		@Override
+		public int compare(LineCollectionEntry o1, LineCollectionEntry o2) {
+			Matcher m1 = pattern_filename_movement.matcher(o1.getCsv().getName());
+			Matcher m2 = pattern_filename_movement.matcher(o2.getCsv().getName());
+			int res = 0;
+			if (m1.matches() && m2.matches()) {
+				int grp = 1;
+				while (res == 0 && grp <= Math.min(m1.groupCount(), m2.groupCount())) {
+					res = Long.compare(Long.parseLong(m1.group(grp)), Long.parseLong(m2.group(grp)));
+					grp++;
+				}
+			}
+			return res;
+		}
+	};
+
+	
 	@SuppressWarnings("unchecked")
-	public StepWise_ContactMap_Generation_Map_Location_Mobility(long mapSeed, int popId, Properties loadedProperties) {
-		super(mapSeed, popId, loadedProperties);
+	public StepWiseOperation_ContactMap_Generation_Demographic(long mapSeed, int popId, Properties loadedProperties) {
+		this.mapSeed = mapSeed;
+		this.popId = popId;
+		this.loadedProperties = loadedProperties;	
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
 			this.baseDir = (File) loadedProperties.get(Simulation_MetaPop.PROP_BASEDIR);
 			this.map_indiv = (ConcurrentHashMap<Integer, int[]>) loadedProperties
 					.get(Simulation_MetaPop.PROP_INDIV_STAT);
+			this.extraPartner_record = (List<int[]>) loadedProperties.get(Simulation_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
+
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
@@ -223,15 +234,14 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 		loadMovement(lines_inflow);
 		loadMovement(lines_outflow);
 	}
-
-	@Override
+	
 	public void advanceTimeStep() {
 		map_available_by_grp.clear();
-		
+
 		Integer[] grpIds = map_in_population_by_grp.keySet().toArray(new Integer[0]);
-		for (Integer grpId : grpIds) {			
-			// Update activity group (if need)			
-			ArrayList<Integer> grpPids = map_in_population_by_grp.get(grpId);								
+		for (Integer grpId : grpIds) {
+			// Update activity group (if need)
+			ArrayList<Integer> grpPids = map_in_population_by_grp.get(grpId);
 			for (Integer pid : grpPids.toArray(new Integer[0])) {
 				int[] indiv_ent = map_indiv.get(pid);
 				if (currentTime >= indiv_ent[INDEX_MAP_INDIV_EXIT_AT] && indiv_ent[INDEX_MAP_INDIV_EXIT_AT] > 0) {
@@ -258,16 +268,16 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 						indiv_ent[INDEX_MAP_INDIV_CURRENT_ACTIVITY_POINT] = 0;// Force reset
 						ArrayList<Integer> grpPids_add = map_in_population_by_grp
 								.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
-						updatePartnerSeekingActivity(indiv_ent);
+						updatePartnerSeekingActivity(pid, indiv_ent);
 						grpPids_add.add(~Collections.binarySearch(grpPids_add, pid), pid);
 
 					}
 				}
-			}				
+			}
 			for (Integer pid : map_in_population_by_grp.get(grpId)) {
 				int[] indiv_ent = map_indiv.get(pid);
-				if (indiv_ent[INDEX_MAP_INDIV_WINDOW_REFRESH_AT] <= currentTime) {
-					updatePartnerSeekingActivity(indiv_ent);
+				if (indiv_ent[INDEX_MAP_INDIV_WINDOW_REFRESH_AT] == currentTime) {
+					updatePartnerSeekingActivity(pid, indiv_ent);
 				}
 				// Add to map_available_by_grp
 				if (indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] > 0) {
@@ -379,7 +389,7 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 					indiv_ent[INDEX_MAP_INDIV_ENTER_GRP] = Integer.parseInt(str_ent[INDEX_MAP_INDIV_ENTER_GRP + 1]);
 					indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] = popId;
 					indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = indiv_ent[INDEX_MAP_INDIV_ENTER_GRP];
-					updatePartnerSeekingActivity(indiv_ent);
+					updatePartnerSeekingActivity(pid, indiv_ent);
 					map_indiv.put(pid, indiv_ent);
 
 					// Update map_in_population_by_grp
@@ -396,7 +406,15 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 		}
 	}
 
-	private void updatePartnerSeekingActivity(int[] indiv_ent) {
+	private void updatePartnerSeekingActivity(int pid, int[] indiv_ent) {
+		// Individual want to seek new partner by cannot do so
+		
+		if (indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] > 0) {
+			// "TIME_FROM,PID,EXTRA_PARTNER_SOUGHT"
+			extraPartner_record.add(new int[] { Math.max(currentTime - AbstractIndividualInterface.ONE_YEAR_INT, 0), 
+					pid,indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] });
+		}
+
 		double[] partnership_setting = partnership_by_snap[indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]];
 		// {duration_mean, duration_sd, Cumul_Probability_0.., Min_Partner_0...,
 		// Max_Partner_0, ...}
@@ -447,7 +465,7 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 		}
 		// Write contact map
 		File cMapFile = new File(baseDir,
-				String.format(Runnable_ClusterModel_ContactMap_Generation_MultiMap.MAPFILE_FORMAT, popId, mapSeed));
+				String.format(Runnable_Demographic_Generation.FILENAME_FORMAT_CMAP_BY_POP, popId, mapSeed));
 		try {
 			PrintWriter pWri = new PrintWriter(cMapFile);
 			for (int[] partnership : pairing) {
@@ -456,8 +474,10 @@ public class StepWise_ContactMap_Generation_Map_Location_Mobility extends Abstra
 			pWri.close();
 		} catch (IOException e) {
 			e.printStackTrace(System.err);
-		}
-
+		}												
 	}
+	
+	
+	
 
 }

@@ -28,9 +28,10 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 	public static final String FILENAME_FORMAT_DEMOGRAPHIC = "Demographic_%d_%d.csv"; // POP_ID, SEED
 	public static final String FILENAME_FORMAT_MOVEMENT = "Movement_%s_%d.csv"; // POPSRC_POPTAR , SEED
+	public static final String FILENAME_FORMAT_CMAP_BY_POP = "ContactMap_Pop_%d_%d.csv"; // POP_ID , SEED
 
-	public static final String FILE_HEADER_DEMOGRAPHIC = "PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP";
-	public static final String FILE_HEADER_MOVEMENT = "TIME,PID";
+	private static final String FILE_HEADER_DEMOGRAPHIC = "PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP";
+	private static final String FILE_HEADER_MOVEMENT = "TIME,PID";
 
 	// K = PID, V = int[]{enter_pop_at, exit_pop_at, enter_pop_age, enter_grp,
 	// home_location, current_grp, current_loc}
@@ -412,5 +413,11 @@ public class Runnable_Demographic_Generation implements Runnable {
 		}
 		move_str.append(String.format("%d,%d\n", move_time, pid));
 	}
+	
+	
+	
+	
+	
+	
 
 }
