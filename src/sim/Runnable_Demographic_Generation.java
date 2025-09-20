@@ -34,14 +34,14 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 	// K = PID, V = int[]{enter_pop_at, exit_pop_at, enter_pop_age, enter_grp,
 	// home_location, current_grp, current_loc}
-	public static final int INDEX_MAP_INDIV_ENTER_AT = 0;
-	public static final int INDEX_MAP_INDIV_EXIT_AT = INDEX_MAP_INDIV_ENTER_AT + 1;
-	public static final int INDEX_MAP_INDIV_ENTER_AGE = INDEX_MAP_INDIV_EXIT_AT + 1;
-	public static final int INDEX_MAP_INDIV_ENTER_GRP = INDEX_MAP_INDIV_ENTER_AGE + 1;
-	public static final int INDEX_MAP_INDIV_ENTER_LOC = INDEX_MAP_INDIV_ENTER_GRP + 1;
-	public static final int INDEX_MAP_INDIV_CURRENT_GRP = INDEX_MAP_INDIV_ENTER_LOC + 1;
-	public static final int INDEX_MAP_INDIV_CURRENT_LOC = INDEX_MAP_INDIV_CURRENT_GRP + 1;
-	public static final int LENGTH_MAP_INDIV = INDEX_MAP_INDIV_CURRENT_LOC + 1;
+	private static final int INDEX_MAP_INDIV_ENTER_AT = 0;
+	private static final int INDEX_MAP_INDIV_EXIT_AT = INDEX_MAP_INDIV_ENTER_AT + 1;
+	private static final int INDEX_MAP_INDIV_ENTER_AGE = INDEX_MAP_INDIV_EXIT_AT + 1;
+	private static final int INDEX_MAP_INDIV_ENTER_GRP = INDEX_MAP_INDIV_ENTER_AGE + 1;
+	private static final int INDEX_MAP_INDIV_ENTER_LOC = INDEX_MAP_INDIV_ENTER_GRP + 1;
+	private static final int INDEX_MAP_INDIV_CURRENT_GRP = INDEX_MAP_INDIV_ENTER_LOC + 1;
+	private static final int INDEX_MAP_INDIV_CURRENT_LOC = INDEX_MAP_INDIV_CURRENT_GRP + 1;
+	private static final int LENGTH_MAP_INDIV = INDEX_MAP_INDIV_CURRENT_LOC + 1;
 
 	// 1: RUNNABLE_FIELD_INT_SETTING
 	public static final int RUNNABLE_FIELD_INT_SETTING = Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_INT_SETTING;
@@ -225,15 +225,14 @@ public class Runnable_Demographic_Generation implements Runnable {
 									setMovementAt(currentTime, pid, indiv_ent, indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC],
 											indiv_ent[INDEX_MAP_INDIV_ENTER_LOC], map_movement_strBuilder);
 								}
-								
+
 								indiv_ent[INDEX_MAP_INDIV_EXIT_AT] = currentTime;
 								grpPids = map_group_member_by_pop.get(indiv_ent[INDEX_MAP_INDIV_ENTER_LOC])
 										.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
 								grpPids.remove(Collections.binarySearch(grpPids, pid));
 								indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = -1;
 								indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] = -1;
-								
-								
+
 							} else {
 								// Age to next group
 								if (currentAge >= map_group_age_range.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP])[1]) {
@@ -261,12 +260,13 @@ public class Runnable_Demographic_Generation implements Runnable {
 					grpPids = map_group_member_by_pop.get(pop_id).get(g);
 					while (grpPids.size() != gSize) {
 						if (grpPids.size() > gSize) {
-							// Remove individuals from group																				
+							// Remove individuals from group
 							int remove_pid = grpPids.remove(RNG.nextInt(grpPids.size()));
 							int[] indiv_ent = map_indiv.get(remove_pid);
 							if (indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] != indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC]) {
-								setMovementAt(currentTime, remove_pid, indiv_ent, indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC],
-										indiv_ent[INDEX_MAP_INDIV_ENTER_LOC], map_movement_strBuilder);
+								setMovementAt(currentTime, remove_pid, indiv_ent,
+										indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC], indiv_ent[INDEX_MAP_INDIV_ENTER_LOC],
+										map_movement_strBuilder);
 							}
 							indiv_ent[INDEX_MAP_INDIV_EXIT_AT] = currentTime;
 							indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = -1;
@@ -287,34 +287,43 @@ public class Runnable_Demographic_Generation implements Runnable {
 						}
 					}
 				}
-				// Movement - Return home
-				ArrayList<Integer> return_home_pids = map_indivdual_return.remove(currentTime);
-				if (return_home_pids != null) {
-					for (Integer return_pid : return_home_pids) {
-						int[] indiv_ent = map_indiv.get(return_pid);
-						if (indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] != -1) {
-							int move_src = indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC];
-							int move_target = indiv_ent[INDEX_MAP_INDIV_ENTER_LOC];
-							setMovementAt(currentTime, return_pid, indiv_ent, move_src, move_target,
-									map_movement_strBuilder);
-						}
+			}
+			// Movement - Return home
+			ArrayList<Integer> return_home_pids = map_indivdual_return.remove(currentTime);				
+			if (return_home_pids != null) {
+				Collections.sort(return_home_pids);
+				for (int pid : return_home_pids) {
+					int[] indiv_ent = map_indiv.get(pid);
+					if (indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] != -1) {
+						int move_src = indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC];
+						int move_target = indiv_ent[INDEX_MAP_INDIV_ENTER_LOC];
+						setMovementAt(currentTime, pid, indiv_ent, move_src, move_target, map_movement_strBuilder);
 					}
 				}
-
-				// Movement - Away from home
+			}
+			
+			// Movement - Away from home
+			for (Integer pop_id : pop_id_arr) {
+				int[] pop_size_by_grps = (int[]) node_info.get(pop_id).get(Map_Location_Mobility.NODE_INFO_POP_SIZE);
+				Integer[] grpArray = map_group_member_by_pop.get(pop_id).keySet().toArray(new Integer[0]);
+				Arrays.sort(grpArray);
+				
 				float[] num_away_by_grp = (float[]) node_info.get(pop_id).get(Map_Location_Mobility.NODE_INFO_AWAY);
 				for (int g = 0; g < pop_size_by_grps.length; g++) {
 					ArrayList<Integer> pids_at_home = new ArrayList<>();
-					for (Integer home_pid : map_group_member_by_pop.get(pop_id).get(g)) {
-						int[] indiv_ent = map_indiv.get(home_pid);
+					for (Integer pid : map_group_member_by_pop.get(pop_id).get(g)) {
+						int[] indiv_ent = map_indiv.get(pid);
 						if (indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] == indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC]) {
-							pids_at_home.add(home_pid);
+							if (return_home_pids == null || Collections.binarySearch(return_home_pids, pid) < 0) {
+								// Not allow to move away when just return home
+								pids_at_home.add(pid);
+							}
 						}
 					}
 					int num_home_expected = Math.round(pop_size_by_grps[g] * (1 - num_away_by_grp[g] / 100f));
 
 					while (pids_at_home.size() > num_home_expected) {
-						int move_pid = pids_at_home.remove(RNG.nextInt(pids_at_home.size()));
+						int pid = pids_at_home.remove(RNG.nextInt(pids_at_home.size()));
 						// Movement
 						int[] pop_target = lookup_edge_target_array.get(pop_id);
 						double[] target_weight = lookup_edge_weight_array.get(pop_id);
@@ -326,7 +335,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 						}
 
 						int move_target = pop_target[tar_pt];
-						setMovementAt(currentTime, move_pid, map_indiv.get(move_pid), pop_id, move_target,
+						setMovementAt(currentTime, pid, map_indiv.get(pid), pop_id, move_target,
 								map_movement_strBuilder);
 
 						// Set return
@@ -337,7 +346,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 							sch_return = new ArrayList<>();
 							map_indivdual_return.put(return_day, sch_return);
 						}
-						sch_return.add(move_pid);
+						sch_return.add(pid);
 
 					}
 
@@ -347,14 +356,11 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 			currentTime++;
 		}
-		
-		
-
 
 		// Print demographic CSV
 
 		HashMap<Integer, PrintWriter> demo_priWri = new HashMap<>();
-		
+
 		for (Entry<Integer, int[]> ent : map_indiv.entrySet()) {
 			int homeLoc = ent.getValue()[INDEX_MAP_INDIV_ENTER_LOC];
 			try {
@@ -362,25 +368,25 @@ public class Runnable_Demographic_Generation implements Runnable {
 				if (pWri == null) {
 					pWri = new PrintWriter(
 							new File(baseDir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed)));
-					pWri.println(FILE_HEADER_DEMOGRAPHIC);					
+					pWri.println(FILE_HEADER_DEMOGRAPHIC);
 					demo_priWri.put(homeLoc, pWri);
 				}
 				pWri.printf("%d,%d,%d,%d,%d\n", ent.getKey(), ent.getValue()[INDEX_MAP_INDIV_ENTER_AT],
 						ent.getValue()[INDEX_MAP_INDIV_EXIT_AT], ent.getValue()[INDEX_MAP_INDIV_ENTER_AGE],
-						ent.getValue()[INDEX_MAP_INDIV_ENTER_GRP]);				
+						ent.getValue()[INDEX_MAP_INDIV_ENTER_GRP]);
 			} catch (IOException e) {
 				e.printStackTrace(System.err);
 			}
 		}
-		for(PrintWriter pWri : demo_priWri.values()) {
+		for (PrintWriter pWri : demo_priWri.values()) {
 			pWri.close();
 		}
-		
+
 		// Print movement CSV
 		for (Entry<String, StringBuilder> ent : map_movement_strBuilder.entrySet()) {
 			try {
-				PrintWriter pWri = new PrintWriter(new File(baseDir,
-						String.format(FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed)));
+				PrintWriter pWri = new PrintWriter(
+						new File(baseDir, String.format(FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed)));
 				pWri.println(FILE_HEADER_MOVEMENT);
 				pWri.print(ent.getValue().toString());
 				pWri.close();
@@ -388,9 +394,9 @@ public class Runnable_Demographic_Generation implements Runnable {
 				e.printStackTrace(System.err);
 			}
 		}
-		
-		System.out.printf("Demographic / Mobility generation for mapSeed=%d completed. Time required = %.3fs\n", mapSeed,
-				(System.currentTimeMillis() - tic) / 1000.0);
+
+		System.out.printf("Demographic / Mobility generation for mapSeed=%d completed. Time required = %.3fs\n",
+				mapSeed, (System.currentTimeMillis() - tic) / 1000.0);
 
 	}
 

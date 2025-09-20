@@ -10,12 +10,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import map.Abstract_Map_Location;
 import map.Map_Location_Mobility;
 
 public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 
-	public static final String PROP_BASEDIR = "PROP_BASEDIR";
+	public static final String PROP_BASEDIR = "PROP_BASEDIR";	
+	public static final String PROP_LOC_MAP = "PROP_LOC_MAP";
+	public static final String PROP_PRELOAD_FILES = "PROP_PRELOAD_FILES";
+	public static final String PROP_INDIV_STAT = "PROP_INDIV_STAT";
 
 	public static void main(String[] args) throws IOException, InterruptedException {
 		final String USAGE_INFO = String.format(
@@ -68,7 +70,7 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 			Map_Location_Mobility shared_loc_map = null;
 
 			// Generate demographic
-			if (Runnable_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
+			if (StepWise_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
 					.equals(loadedProperties.getProperty(PROP_NAME[PROP_POP_TYPE]))) {
 				shared_loc_map = new Map_Location_Mobility();
 				File file_map = new File(loadedProperties.getProperty(String.format("%s%d",
@@ -127,7 +129,7 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 			for (String cMapStr : cMap_seeds) {
 				Runnable_ClusterModel_ContactMap_Generation_MultiMap runnable_genMap;
 
-				if (Runnable_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
+				if (StepWise_ContactMap_Generation_Map_Location_Mobility.POP_TYPE
 						.equals(loadedProperties.getProperty(PROP_NAME[PROP_POP_TYPE]))) {
 					// TODO: Run multiple population in parallel
 					runnable_genMap = null;
@@ -169,14 +171,11 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 		}
 	}
 
-	public static final String PROP_LOC_MAP = "PROP_LOC_MAP";
+
 
 	@Override
 	public Abstract_Runnable_ClusterModel_Transmission generateDefaultRunnable(long cMap_seed, long sim_seed,
-			Properties loadProperties) {
-
-		String popType = (String) loadedProperties
-				.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_POP_TYPE]);
+			Properties loadProperties) {		
 
 		// TODO: Simulation to be implemented
 
