@@ -41,7 +41,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	public static final int RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING = RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP
 			+ 1;
 
-	protected boolean preloadLines = false;	
+	protected boolean preloadLines = false;
 	protected LineCollectionEntry lines_demographic;
 	protected long mapSeed;
 	protected int popId;
@@ -50,7 +50,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	protected ArrayList<LineCollectionEntry> lines_outflow = new ArrayList<>();
 	protected ArrayList<LineCollectionEntry> lines_inflow = new ArrayList<>();
 	protected int currentTime;
-	
+
 	// Key = PID, V =
 	// ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_AGP,ACTIVIY_GRP,NUM_PARTNER_SEEK,
 	// PARTNER_RECORD
@@ -96,8 +96,8 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	private HashMap<Integer, int[]> lookup_group_age_range = new HashMap<>();
 	// Key = Grp, ArrayList<> pids)
 	private HashMap<Integer, ArrayList<Integer>> map_in_population_by_grp = new HashMap<>();
-	private HashMap<Integer, ArrayList<Integer>> map_available_by_grp = new HashMap<>();	
-	
+	private HashMap<Integer, ArrayList<Integer>> map_available_by_grp = new HashMap<>();
+
 	private Pattern pattern_filename_movement = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
 			.replaceAll("%s", "(\\d+)_(\\d+)").replaceAll("%d", "(-?\\d+)"));
 
@@ -118,12 +118,11 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		}
 	};
 
-	
 	@SuppressWarnings("unchecked")
 	public StepWiseOperation_ContactMap_Generation_Demographic(long mapSeed, int popId, Properties loadedProperties) {
 		this.mapSeed = mapSeed;
 		this.popId = popId;
-		this.loadedProperties = loadedProperties;	
+		this.loadedProperties = loadedProperties;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
 			this.baseDir = (File) loadedProperties.get(Simulation_MetaPop.PROP_BASEDIR);
@@ -234,7 +233,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		loadMovement(lines_inflow);
 		loadMovement(lines_outflow);
 	}
-	
+
 	public void advanceTimeStep() {
 		map_available_by_grp.clear();
 
@@ -408,11 +407,11 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 
 	private void updatePartnerSeekingActivity(int pid, int[] indiv_ent) {
 		// Individual want to seek new partner by cannot do so
-		
+
 		if (indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] > 0) {
 			// "TIME_FROM,PID,EXTRA_PARTNER_SOUGHT"
-			extraPartner_record.add(new int[] { Math.max(currentTime - AbstractIndividualInterface.ONE_YEAR_INT, 0), 
-					pid,indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] });
+			extraPartner_record.add(new int[] { Math.max(currentTime - AbstractIndividualInterface.ONE_YEAR_INT, 0),
+					pid, indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] });
 		}
 
 		double[] partnership_setting = partnership_by_snap[indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]];
@@ -474,10 +473,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 			pWri.close();
 		} catch (IOException e) {
 			e.printStackTrace(System.err);
-		}												
+		}
 	}
-	
-	
-	
 
 }
