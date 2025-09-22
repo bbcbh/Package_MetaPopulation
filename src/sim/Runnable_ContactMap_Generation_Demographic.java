@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -146,7 +147,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 				String.format(Runnable_ClusterModel_ContactMap_Generation_MultiMap.POPSTAT_FORMAT, seed));
 		PrintWriter pWri = new PrintWriter(popStat);
 		
-		pWri.println("ID,GRP,ENTER_POP_AGE,ENTER_POP_AT,EXIT_POP_AT");
+		pWri.println("ID,GRP,ENTER_POP_AGE,ENTER_POP_AT,EXIT_POP_AT,HOME_LOC");
 
 		for (File f : allDemographicFile) {
 			Matcher m = pattern_demographic.matcher(f.getName());
@@ -158,9 +159,9 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 			BufferedReader reader = new BufferedReader(new FileReader(f));
 			String line = reader.readLine();
 			while ((line = reader.readLine()) != null) {
-				// PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP
+				// PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP,HOME_LOC
 				String[] ent = line.split(",");
-				pWri.printf("%s,%s,%s,%s,%s\n", ent[0], ent[4], ent[3], ent[1], ent[2]);
+				pWri.printf("%s,%s,%s,%s,%s,%s\n", ent[0], ent[4], ent[3], ent[1], ent[2],m.group(1));
 			}
 
 			reader.close();
@@ -198,12 +199,12 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 				if (renameOnly) {
 					f.renameTo(newFile);
 				} else {
-					Files.copy(f.toPath(), newFile.toPath());
+					Files.copy(f.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 				}
 			} else {				
 				if (!renameOnly) {
 					newFile = new File(tarDir, f.getName());
-					Files.copy(f.toPath(), newFile.toPath());
+					Files.copy(f.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 				}
 			}
 		}

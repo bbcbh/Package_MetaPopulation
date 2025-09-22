@@ -25,7 +25,7 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 	public static final String PROP_PARNTER_EXTRA_SOUGHT = "PROP_PARNTER_EXTRA_SOUGHT";
 	public static final String PROP_CONTACT_MAP_LOC = "PROP_CONTACT_MAP_LOC";
 
-	public static void main(String[] args) throws IOException, InterruptedException {
+	public static void test_main(String[] args) throws IOException, InterruptedException {
 		final String USAGE_INFO = String.format(
 				"Usage: java %s PROP_FILE_DIRECTORY " + "<-export_skip_backup> <-printProgress> <-seedMap=SEED_MAP>\n"
 						+ "    or java %s -genMap PROP_FILE_DIRECTORY -seedMap=SEED_MAP",
@@ -158,7 +158,7 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 	@Override
 	public Abstract_Runnable_ClusterModel_Transmission generateDefaultRunnable(long cMap_seed, long sim_seed,
 			Properties loadProperties) {
-		Runnable_MetaPopulation_Transmission_Single_Site_Four_Inf run_trans = new Runnable_MetaPopulation_Transmission_Single_Site_Four_Inf(
+		Runnable_MetaPopulation_Transmission_RMP_MultiInfection run_trans = new Runnable_MetaPopulation_Transmission_RMP_MultiInfection(
 				cMap_seed, sim_seed, loadedProperties);
 
 		return run_trans;
