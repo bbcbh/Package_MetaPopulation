@@ -27,8 +27,8 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 	public static final String POP_TYPE = "MetaPop_By_Location_Mobility";
 
 	private static final String FILE_HEADER_EXTRA_PARTNER_SOUGHT = "TIME_FROM,PID,EXTRA_PARTNER_SOUGHT";
-	public static final String FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT = "Extra_partner_sought_%d.csv"; //  SEED
-	public static final String FILENAME_FORMAT_POP_INDEX_MAP = "PopIndex_Mapping_%d.csv"; //  SEED
+	public static final String FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT = "Extra_partner_sought_%d.csv"; // SEED
+	public static final String FILENAME_FORMAT_POP_INDEX_MAP = "PopIndex_Mapping_%d.csv"; // SEED
 
 	public Runnable_ContactMap_Generation_Demographic(long mapSeed, Properties loadedProperties) {
 		this.mapSeed = mapSeed;
@@ -146,7 +146,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 		File popStat = new File(tarDir,
 				String.format(Runnable_ClusterModel_ContactMap_Generation_MultiMap.POPSTAT_FORMAT, seed));
 		PrintWriter pWri = new PrintWriter(popStat);
-		
+
 		pWri.println("ID,GRP,ENTER_POP_AGE,ENTER_POP_AT,EXIT_POP_AT,HOME_LOC");
 
 		for (File f : allDemographicFile) {
@@ -159,25 +159,29 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 			BufferedReader reader = new BufferedReader(new FileReader(f));
 			String line = reader.readLine();
 			while ((line = reader.readLine()) != null) {
-				// PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP,HOME_LOC
+				// ENT: 0:PID, 1:ENTER_AT, 2:EXIT_AT, 3:ENTER_AGE, 4:ENTER_GRP
 				String[] ent = line.split(",");
-				pWri.printf("%s,%s,%s,%s,%s,%s\n", ent[0], ent[4], ent[3], ent[1], ent[2],m.group(1));
+				pWri.printf("%s,%s,%s,%s,%s,%s\n", //
+						ent[0], // ID
+						ent[4], // GRP
+						ent[3], // ENTER_POP_AGE
+						ent[1], // ENTER_POP_AT
+						ent[2], // EXIT_POP_AT
+						m.group(1) // HOME_LOC
+				);
 			}
 
 			reader.close();
 		}
 		pWri.close();
-		
+
 		File popIndexFile = new File(tarDir, String.format(FILENAME_FORMAT_POP_INDEX_MAP, seed));
 		pWri = new PrintWriter(popIndexFile);
 		pWri.println("POP_INDEX,POP_ID");
-		for(Entry<String, Integer> ent : popIdToIndex.entrySet()) {
+		for (Entry<String, Integer> ent : popIdToIndex.entrySet()) {
 			pWri.printf("%d,%s\n", ent.getValue(), ent.getKey());
 		}
 		pWri.close();
-		
-		
-		
 
 		File[] allValidFiles = baseDir.listFiles(new FileFilter() {
 			@Override
@@ -201,7 +205,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 				} else {
 					Files.copy(f.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 				}
-			} else {				
+			} else {
 				if (!renameOnly) {
 					newFile = new File(tarDir, f.getName());
 					Files.copy(f.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);

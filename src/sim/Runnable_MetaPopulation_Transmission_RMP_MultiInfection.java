@@ -34,7 +34,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 	protected static final int INDIV_MAP_ENTER_POP_AT = INDIV_MAP_ENTER_POP_AGE + 1;
 	protected static final int INDIV_MAP_EXIT_POP_AT = INDIV_MAP_ENTER_POP_AT + 1;
 	protected static final int INDIV_MAP_HOME_LOC = INDIV_MAP_EXIT_POP_AT + 1;
-	protected static final int INDIV_MAP_ENTER_GRP = INDIV_MAP_HOME_LOC + 1;	
+	protected static final int INDIV_MAP_ENTER_GRP = INDIV_MAP_HOME_LOC + 1;
 	protected static final int INDIV_MAP_CURRENT_LOC = INDIV_MAP_ENTER_GRP + 1;
 	protected static final int LENGTH_INDIV_MAP = INDIV_MAP_CURRENT_LOC + 1;
 
@@ -59,7 +59,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 	protected static final int SCH_GRP_TO = SCH_GRP_FROM + 1;
 
 	protected int lastTestSch_update = -1;
-	
+
 	protected static final int FIELD_TESTING_RATE_COVERAGE = FIELD_TESTING_RATE_BY_RISK_CATEGORIES_TEST_RATE_PARAM_START;
 	protected static final int FIELD_TESTING_TREATMENT_DELAY_START = FIELD_TESTING_RATE_COVERAGE + 1;
 
@@ -76,16 +76,14 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 	private static final int NUM_ACT = 1;
 	private static final int NUM_GRP_PER_GENDER = 3;
 
-	private static final int[] COL_SEL_INF_GENDER = null; 
-	
-	private static final int[] COL_SEL_INF_GENDER_SITE_AT = 
-	new int[] {					
-			 97, 99,113,115,129,131, // NG Male
-			145,146,161,162,177,178, // NG Female
-			193,195,209,211,225,227, // CT Male
-			241,242,257,258,273,274, // CT Female 
-			289,291,305,307,321,323, // TV Male
-			337,338,353,354,369,370, // TV Female
+	private static final int[] COL_SEL_INF_GENDER = null;
+
+	private static final int[] COL_SEL_INF_GENDER_SITE_AT = new int[] { 97, 99, 113, 115, 129, 131, // NG Male
+			145, 146, 161, 162, 177, 178, // NG Female
+			193, 195, 209, 211, 225, 227, // CT Male
+			241, 242, 257, 258, 273, 274, // CT Female
+			289, 291, 305, 307, 321, 323, // TV Male
+			337, 338, 353, 354, 369, 370, // TV Female
 	};
 
 	// For infection tracking
@@ -94,13 +92,14 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 	protected HashMap<Integer, ArrayList<ArrayList<Integer>>> infection_history = new HashMap<>();
 	private static final int INFECTION_HIST_CLEAR_NATURAL_RECOVERY = -1;
 	private static final int INFECTION_HIST_CLEAR_TREATMENT = -2;
+	private static final int INFECTION_HIST_OVERTREATMENT = -3;
 
 	// Movement files
 	protected HashMap<String, LineCollectionEntry> movementCollections = new HashMap<>();
 	protected int lastMovement_update = -1;
 	private final Pattern pattern_movement_csv;
 	private boolean preloadFile = false;
-	
+
 	// Output
 	protected static final String key_pop_size = "EXPORT_POP_SIZE";
 	protected static final String FILENAME_EXPORT_POP_SIZE = "Pop_size_%d_%d.csv";
@@ -125,7 +124,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 				Matcher m = pattern_movement_csv.matcher(mv.getName());
 				m.matches();
 				LineCollectionEntry ent = new LineCollectionEntry(mv, preloadFile);
-				ent.loadNextLine(); 
+				ent.loadNextLine();
 				ent.loadNextLine(); // Skip Header
 				movementCollections.put(m.group(1), ent);
 			} catch (IOException e) {
@@ -207,22 +206,22 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 		}
 		// Movement
 		loadMovement(currentTime);
-		
+
 		// Store pop size
-		if(currentTime % nUM_TIME_STEPS_PER_SNAP == 0) {			
+		if (currentTime % nUM_TIME_STEPS_PER_SNAP == 0) {
 			@SuppressWarnings("unchecked")
 			HashMap<Integer, int[]> countMap = (HashMap<Integer, int[]>) sim_output.get(key_pop_size);
-			if(countMap == null) {
+			if (countMap == null) {
 				countMap = new HashMap<>();
 				sim_output.put(key_pop_size, countMap);
 			}
 			int[] pop_size = new int[NUM_GRP];
-			for(int g = 0; g < pop_size.length; g++) {
+			for (int g = 0; g < pop_size.length; g++) {
 				pop_size[g] = current_pids_by_gps.get(g).size();
 			}
 			countMap.put(currentTime, pop_size);
 		}
-		
+
 	}
 
 	@SuppressWarnings("unchecked")
@@ -232,13 +231,12 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 		String key, fileName;
 		HashMap<Integer, int[]> countMap;
 		String filePrefix = this.getRunnableId() == null ? "" : this.getRunnableId();
-		
+
 		key = key_pop_size;
-		
+
 		countMap = (HashMap<Integer, int[]>) sim_output.get(key);
 		fileName = String.format(filePrefix + FILENAME_EXPORT_POP_SIZE, cMAP_SEED, sIM_SEED);
 		printCountMap(countMap, fileName, "Group_%d", new int[] { NUM_GRP }, null);
-		
 
 		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_GEN_INCIDENCE_FILE) != 0) {
 
@@ -415,10 +413,36 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 
 	@Override
 	protected void applyTreatment(int currentTime, int infId, int pid, int[][] inf_stage) {
+		
+		int[] preTreatment_stage = Arrays.copyOf(inf_stage[infId], inf_stage[infId].length);		
+		
 		super.applyTreatment(currentTime, infId, pid, inf_stage);
+
 		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
-			infection_history.get(pid).get(infId).add(currentTime);
-			infection_history.get(pid).get(infId).add(INFECTION_HIST_CLEAR_TREATMENT);
+			ArrayList<Integer> infHist = infection_history.get(pid).get(infId);
+
+			boolean nonInfected = true;
+			boolean treatment_suc = false;
+			
+			for (int i = 0; i < preTreatment_stage.length; i++) {				
+				nonInfected &= preTreatment_stage[i] == AbstractIndividualInterface.INFECT_S;
+				treatment_suc |= preTreatment_stage[i] >= 0 && preTreatment_stage[i] != inf_stage[infId][i];
+			}
+			if (nonInfected) {							
+				infHist.add(currentTime);
+				infHist.add(currentTime);
+				infHist.add(INFECTION_HIST_OVERTREATMENT);	
+			} else if(treatment_suc) {							
+				if (infHist.get(infHist.size() - 1) > 0) {
+					infHist.add(currentTime);
+					infHist.add(INFECTION_HIST_CLEAR_TREATMENT);
+				} else {
+					System.err.printf("Infection history error: %s -> %s.\n",
+							Arrays.toString(preTreatment_stage),
+							Arrays.toString(inf_stage[infId]));
+					
+				}
+			}
 		}
 
 	}
@@ -462,8 +486,9 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 					all_clear &= (s == site_id ? res[0] : inf_stat[s]) == AbstractIndividualInterface.INFECT_S;
 				}
 				if (all_clear) {
-					infection_history.get(pid).get(infection_id).add(current_time);
-					infection_history.get(pid).get(infection_id).add(INFECTION_HIST_CLEAR_NATURAL_RECOVERY);
+					ArrayList<Integer> infHist = infection_history.get(pid).get(infection_id);
+					infHist.add(current_time);
+					infHist.add(INFECTION_HIST_CLEAR_NATURAL_RECOVERY);
 				}
 			}
 
@@ -475,8 +500,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 	@Override
 	protected double getTransmissionProb(int currentTime, int inf_id, int pid_inf_src, int pid_inf_tar,
 			int partnershiptDur, int actType, int src_site, int tar_site) {
-		if (indiv_map.get(pid_inf_src)[INDIV_MAP_CURRENT_LOC] != 
-				indiv_map.get(pid_inf_tar)[INDIV_MAP_CURRENT_LOC]) {
+		if (indiv_map.get(pid_inf_src)[INDIV_MAP_CURRENT_LOC] != indiv_map.get(pid_inf_tar)[INDIV_MAP_CURRENT_LOC]) {
 			// Only possible at same location
 			return 0;
 		} else {
@@ -485,21 +509,17 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 		}
 	}
 
-	
-
-	
-
-	protected void loadMovement(int movementUpToTime) {		
+	protected void loadMovement(int movementUpToTime) {
 		while (lastMovement_update <= movementUpToTime) {
 			for (Entry<String, LineCollectionEntry> mvE : movementCollections.entrySet()) {
-				String[] direction = mvE.getKey().split("_");				
+				String[] direction = mvE.getKey().split("_");
 				while ((mvE.getValue().getCurrentLine()) != null) {
 					String[] ent = mvE.getValue().getCurrentLine().split(",");
 					if (Integer.parseInt(ent[0]) == lastMovement_update) {
-						int[] indiv_stat = indiv_map.get(Integer.parseInt(ent[1]));						
+						int[] indiv_stat = indiv_map.get(Integer.parseInt(ent[1]));
 						indiv_stat[INDIV_MAP_CURRENT_LOC] = Integer.parseInt(direction[1]);
 						mvE.getValue().loadNextLine();
-					}else{
+					} else {
 						break;
 					}
 				}
@@ -630,13 +650,16 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 				int changeAge = grp_age_range[checkGrp][1];
 				int changeTime = changeAge - indiv_stat[INDIV_MAP_ENTER_POP_AGE] + indiv_stat[INDIV_MAP_ENTER_POP_AT];
 
+				int nextGrp = checkGrp + 1;
+
 				if (indiv_stat[INDIV_MAP_EXIT_POP_AT] > 0 && indiv_stat[INDIV_MAP_EXIT_POP_AT] < changeTime) {
 					changeTime = indiv_stat[INDIV_MAP_EXIT_POP_AT];
+					nextGrp = -1;
 					reach_max_age_grp = true;
 				}
 
 				if ((checkGrp % NUM_GRP_PER_GENDER) + 1 < NUM_GRP_PER_GENDER) {
-					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, checkGrp + 1 });
+					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, nextGrp });
 				} else {
 					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, -1 });
 					reach_max_age_grp = true;
