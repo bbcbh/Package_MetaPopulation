@@ -29,14 +29,14 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 
 	// Pop stat will be the stat prior to simulation
 	protected HashMap<Integer, int[]> indiv_map = new HashMap<>();
-	protected static final int INDIV_MAP_CURRENT_GRP = 0;
-	protected static final int INDIV_MAP_ENTER_POP_AGE = INDIV_MAP_CURRENT_GRP + 1;
-	protected static final int INDIV_MAP_ENTER_POP_AT = INDIV_MAP_ENTER_POP_AGE + 1;
-	protected static final int INDIV_MAP_EXIT_POP_AT = INDIV_MAP_ENTER_POP_AT + 1;
-	protected static final int INDIV_MAP_HOME_LOC = INDIV_MAP_EXIT_POP_AT + 1;
-	protected static final int INDIV_MAP_ENTER_GRP = INDIV_MAP_HOME_LOC + 1;
-	protected static final int INDIV_MAP_CURRENT_LOC = INDIV_MAP_ENTER_GRP + 1;
-	protected static final int LENGTH_INDIV_MAP = INDIV_MAP_CURRENT_LOC + 1;
+	public static final int INDIV_MAP_CURRENT_GRP = 0;
+	public static final int INDIV_MAP_ENTER_POP_AGE = INDIV_MAP_CURRENT_GRP + 1;
+	public static final int INDIV_MAP_ENTER_POP_AT = INDIV_MAP_ENTER_POP_AGE + 1;
+	public static final int INDIV_MAP_EXIT_POP_AT = INDIV_MAP_ENTER_POP_AT + 1;
+	public static final int INDIV_MAP_HOME_LOC = INDIV_MAP_EXIT_POP_AT + 1;
+	public static final int INDIV_MAP_ENTER_GRP = INDIV_MAP_HOME_LOC + 1;
+	public static final int INDIV_MAP_CURRENT_LOC = INDIV_MAP_ENTER_GRP + 1;
+	public static final int LENGTH_INDIV_MAP = INDIV_MAP_CURRENT_LOC + 1;
 
 	// Key = Grp
 	protected HashMap<Integer, ArrayList<Integer>> current_pids_by_gps = new HashMap<>();
@@ -78,13 +78,13 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 
 	private static final int[] COL_SEL_INF_GENDER = null;
 
-	private static final int[] COL_SEL_INF_GENDER_SITE_AT = new int[] { 97, 99, 113, 115, 129, 131, // NG Male
-			145, 146, 161, 162, 177, 178, // NG Female
-			193, 195, 209, 211, 225, 227, // CT Male
-			241, 242, 257, 258, 273, 274, // CT Female
-			289, 291, 305, 307, 321, 323, // TV Male
-			337, 338, 353, 354, 369, 370, // TV Female
-	};
+//	private static final int[] COL_SEL_INF_GENDER_SITE_AT = new int[] { 97, 99, 113, 115, 129, 131, // NG Male
+//			145, 146, 161, 162, 177, 178, // NG Female
+//			193, 195, 209, 211, 225, 227, // CT Male
+//			241, 242, 257, 258, 273, 274, // CT Female
+//			289, 291, 305, 307, 321, 323, // TV Male
+//			337, 338, 353, 354, 369, 370, // TV Female
+//	};
 
 	// For infection tracking
 	// Key = pid, V = [inf_id][infection_start_time_1,
@@ -94,15 +94,16 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 	private static final int INFECTION_HIST_CLEAR_TREATMENT = -2;
 	private static final int INFECTION_HIST_OVERTREATMENT = -3;
 
-	// Movement files
+	// Movement
 	protected HashMap<String, LineCollectionEntry> movementCollections = new HashMap<>();
+	protected HashMap<Integer, ArrayList<Integer>> visitor_pids_by_loc = new HashMap<>();
 	protected int lastMovement_update = -1;
-	private final Pattern pattern_movement_csv;
-	private boolean preloadFile = false;
-
+		
 	// Output
 	protected static final String key_pop_size = "EXPORT_POP_SIZE";
 	protected static final String FILENAME_EXPORT_POP_SIZE = "Pop_size_%d_%d.csv";
+
+	private boolean preloadFile = false;
 
 	public Runnable_MetaPopulation_Transmission_RMP_MultiInfection(long cMap_seed, long sim_seed, Properties prop) {
 		super(cMap_seed, sim_seed, null, prop, NUM_INF, NUM_SITE, NUM_ACT);
@@ -110,7 +111,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 		this.setBaseProp(prop);
 		this.dir_demographic = new File(baseProp.getProperty(Simulation_MetaPop.PROP_CONTACT_MAP_LOC));
 
-		this.pattern_movement_csv = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
+		Pattern pattern_movement_csv = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
 				.replaceAll("%d", Long.toString(cMap_seed)).replaceAll("%s", "(\\\\d+_\\\\d+)"));
 
 		File[] movement_csvs = dir_demographic.listFiles(new FileFilter() {
@@ -132,6 +133,8 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 			}
 		}
 
+		
+
 	}
 
 	@Override
@@ -141,6 +144,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 		init_age_range();
 		// Set up individual map (i.e. population)
 		init_indiv_map();
+
 	}
 
 	@Override
@@ -207,6 +211,8 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 		// Movement
 		loadMovement(currentTime);
 
+		
+
 		// Store pop size
 		if (currentTime % nUM_TIME_STEPS_PER_SNAP == 0) {
 			@SuppressWarnings("unchecked")
@@ -231,6 +237,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 		String key, fileName;
 		HashMap<Integer, int[]> countMap;
 		String filePrefix = this.getRunnableId() == null ? "" : this.getRunnableId();
+		PrintWriter pWri;
 
 		key = key_pop_size;
 
@@ -270,7 +277,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 
 		}
 		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
-			PrintWriter pWri;
+
 			Integer[] pids = infection_history.keySet().toArray(new Integer[infection_history.size()]);
 			Arrays.sort(pids);
 			try {
@@ -295,8 +302,9 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 			} catch (IOException e) {
 				e.printStackTrace(System.err);
 			}
-
 		}
+
+		
 
 		for (LineCollectionEntry movementEntry : movementCollections.values()) {
 			try {
@@ -413,9 +421,9 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 
 	@Override
 	protected void applyTreatment(int currentTime, int infId, int pid, int[][] inf_stage) {
-		
-		int[] preTreatment_stage = Arrays.copyOf(inf_stage[infId], inf_stage[infId].length);		
-		
+
+		int[] preTreatment_stage = Arrays.copyOf(inf_stage[infId], inf_stage[infId].length);
+
 		super.applyTreatment(currentTime, infId, pid, inf_stage);
 
 		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
@@ -423,24 +431,23 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 
 			boolean nonInfected = true;
 			boolean treatment_suc = false;
-			
-			for (int i = 0; i < preTreatment_stage.length; i++) {				
+
+			for (int i = 0; i < preTreatment_stage.length; i++) {
 				nonInfected &= preTreatment_stage[i] == AbstractIndividualInterface.INFECT_S;
 				treatment_suc |= preTreatment_stage[i] >= 0 && preTreatment_stage[i] != inf_stage[infId][i];
 			}
-			if (nonInfected) {							
+			if (nonInfected) {
 				infHist.add(currentTime);
 				infHist.add(currentTime);
-				infHist.add(INFECTION_HIST_OVERTREATMENT);	
-			} else if(treatment_suc) {							
+				infHist.add(INFECTION_HIST_OVERTREATMENT);
+			} else if (treatment_suc) {
 				if (infHist.get(infHist.size() - 1) > 0) {
 					infHist.add(currentTime);
 					infHist.add(INFECTION_HIST_CLEAR_TREATMENT);
 				} else {
-					System.err.printf("Infection history error: %s -> %s.\n",
-							Arrays.toString(preTreatment_stage),
+					System.err.printf("Infection history error: %s -> %s.\n", Arrays.toString(preTreatment_stage),
 							Arrays.toString(inf_stage[infId]));
-					
+
 				}
 			}
 		}
@@ -516,8 +523,24 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 				while ((mvE.getValue().getCurrentLine()) != null) {
 					String[] ent = mvE.getValue().getCurrentLine().split(",");
 					if (Integer.parseInt(ent[0]) == lastMovement_update) {
-						int[] indiv_stat = indiv_map.get(Integer.parseInt(ent[1]));
-						indiv_stat[INDIV_MAP_CURRENT_LOC] = Integer.parseInt(direction[1]);
+						int pid = Integer.parseInt(ent[1]);
+						int[] indiv_stat = indiv_map.get(pid);
+						int src_loc = Integer.parseInt(direction[0]);
+						int tar_loc = Integer.parseInt(direction[1]);
+						indiv_stat[INDIV_MAP_CURRENT_LOC] = tar_loc;
+						if (tar_loc != indiv_stat[INDIV_MAP_HOME_LOC]) {
+							// Moving away from home
+							ArrayList<Integer> loc_arr = visitor_pids_by_loc.get(tar_loc);
+							if (loc_arr == null) {
+								loc_arr = new ArrayList<>();
+								visitor_pids_by_loc.put(tar_loc, loc_arr);
+							}
+							loc_arr.add(~Collections.binarySearch(loc_arr, pid), pid);
+						} else {
+							// Returning home
+							ArrayList<Integer> loc_arr = visitor_pids_by_loc.get(src_loc);
+							loc_arr.remove(Collections.binarySearch(loc_arr, pid));
+						}
 						mvE.getValue().loadNextLine();
 					} else {
 						break;

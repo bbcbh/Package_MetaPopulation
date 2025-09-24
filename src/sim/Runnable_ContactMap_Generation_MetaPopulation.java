@@ -21,6 +21,7 @@ import org.apache.commons.math3.distribution.AbstractRealDistribution;
  * 
  * For more complex network, use Runnable_ContactMap_Generation_LocationMap instead.
  * 
+ * 
  * @see Runnable_ContactMap_Generation_Demographic
  * @see StepWiseOperation_ContactMap_Generation_Demographic
  */

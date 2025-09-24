@@ -41,6 +41,18 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 		}
 	}
 
+	protected Properties getLoadedProperties() {
+		return loadedProperties;
+	}
+
+	protected long getMapSeed() {
+		return mapSeed;
+	}
+
+	protected Map_Location_Mobility getLoc_map() {
+		return loc_map;
+	}
+
 	@Override
 	public void run() {
 		Integer[] pop_ids = loc_map.getNode_info().keySet().toArray(new Integer[0]);
