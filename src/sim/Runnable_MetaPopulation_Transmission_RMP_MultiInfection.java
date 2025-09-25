@@ -398,7 +398,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 																								// otherwise
 								int delay = (int) testRateDefMatch[pt + numTreatmentDelayOption];
 								delay += RNG.nextInt((int) testRateDefMatch[pt + numTreatmentDelayOption + 1] - delay);
-								if (delay == 0) {
+								if (delay <= 1) {
 									cumul_treatment_by_person[infId][getPersonGrp(pid)]++;
 									applyTreatment(currentTime, infId, pid, inf_stage);
 								} else {
