@@ -22,7 +22,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 
 	public static final int SITE_VAGINA = 0;
 	public static final int SITE_PENIS = SITE_VAGINA + 1;
-	public static final int SITE_ANY = SITE_PENIS + 1;
+	public static final int SITE_ANY = SITE_PENIS + 1; // Not Used
 	// Initialise during initialse
 	protected final File dir_demographic;
 	protected int lastIndivdualUpdateTime = 0;
@@ -339,6 +339,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 			double[] testRateDefMatch = null;
 			int pid = pid_t;
 			for (double[] testRateDef : testRateDefs) {
+				
 				int gIncl = (int) testRateDef[FIELD_TESTING_RATE_BY_RISK_CATEGORIES_GENDER_INCLUDE_INDEX];
 				int sIncl = (int) testRateDef[FIELD_TESTING_RATE_BY_RISK_CATEGORIES_SITE_INCLUDE_INDEX];
 				int iIncl = (int) testRateDef[FIELD_TESTING_RATE_BY_RISK_CATEGORIES_INF_INCLUDE_INDEX];
@@ -351,8 +352,7 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 						"Warning!. Mating test defintion for [%d,%d,%d,%d] NOT found. Use default test person instead.\n",
 						currentTime, pid, infIncl, siteIncl);
 				super.testPerson(currentTime, pid, infIncl, siteIncl, cumul_treatment_by_person);
-			} else {
-
+			} else {							
 				for (int infId = 0; infId < NUM_INF; infId++) {
 					if ((infIncl & 1 << infId) != 0) {
 						boolean applyTreatment = false;
@@ -384,6 +384,8 @@ public class Runnable_MetaPopulation_Transmission_RMP_MultiInfection extends Run
 							}
 						}
 						if (applyTreatment) {
+							
+							//TODO: Set up multiple delay option here
 							int numTreatmentDelayOption = (testRateDefMatch.length
 									- FIELD_TESTING_TREATMENT_DELAY_START) / 2;
 
