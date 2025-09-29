@@ -60,8 +60,8 @@ public class Runnable_Demographic_Generation implements Runnable {
 		this.mapSeed = mapSeed;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
-			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_MetaPop.PROP_LOC_MAP);
-			this.baseDir = (File) loadedProperties.get(Simulation_MetaPop.PROP_BASEDIR);
+			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_Gen_MetaPop.PROP_LOC_MAP);
+			this.baseDir = (File) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR);
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);

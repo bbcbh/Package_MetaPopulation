@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 
 import map.Map_Location_Mobility;
 
-public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
+public class Simulation_Gen_MetaPop extends Simulation_ClusterModelTransmission {
 
 	public static final String PROP_BASEDIR = "PROP_BASEDIR";
 	public static final String PROP_LOC_MAP = "PROP_LOC_MAP";
@@ -24,12 +24,12 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 	public static final String PROP_INDIV_STAT = "PROP_INDIV_STAT";
 	public static final String PROP_PARNTER_EXTRA_SOUGHT = "PROP_PARNTER_EXTRA_SOUGHT";
 	public static final String PROP_CONTACT_MAP_LOC = "PROP_CONTACT_MAP_LOC";
-
+	
 	public static void test_main(String[] args) throws IOException, InterruptedException {
 		final String USAGE_INFO = String.format(
 				"Usage: java %s PROP_FILE_DIRECTORY " + "<-export_skip_backup> <-printProgress> <-seedMap=SEED_MAP>\n"
 						+ "    or java %s -genMap PROP_FILE_DIRECTORY -seedMap=SEED_MAP",
-				Simulation_MetaPop.class.getName(), Simulation_MetaPop.class.getName());
+				Simulation_Gen_MetaPop.class.getName(), Simulation_Gen_MetaPop.class.getName());
 		if (args.length < 1) {
 			System.out.println(USAGE_INFO);
 			System.exit(0);
@@ -109,10 +109,10 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 								loadedProperties);
 						run_gen_dem.run();
 					}
-					loadedProperties.put(Simulation_MetaPop.PROP_LOC_MAP, shared_loc_map);
-					loadedProperties.put(Simulation_MetaPop.PROP_PRELOAD_FILES, true);
-					loadedProperties.put(Simulation_MetaPop.PROP_INDIV_STAT, new ConcurrentHashMap<Integer, int[]>());
-					loadedProperties.put(Simulation_MetaPop.PROP_PARNTER_EXTRA_SOUGHT,
+					loadedProperties.put(Simulation_Gen_MetaPop.PROP_LOC_MAP, shared_loc_map);
+					loadedProperties.put(Simulation_Gen_MetaPop.PROP_PRELOAD_FILES, true);
+					loadedProperties.put(Simulation_Gen_MetaPop.PROP_INDIV_STAT, new ConcurrentHashMap<Integer, int[]>());
+					loadedProperties.put(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT,
 							Collections.synchronizedList(new ArrayList<int[]>()));
 
 					// Run multiple population in parallel
@@ -151,7 +151,7 @@ public class Simulation_MetaPop extends Simulation_ClusterModelTransmission {
 			}
 
 		} else {
-			Simulation_ClusterModelTransmission.launch(args, new Simulation_MetaPop());
+			//Simulation_ClusterModelTransmission.launch(args, new Simulation_MetaPop());
 		}
 	}
 

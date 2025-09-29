@@ -125,17 +125,17 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		this.loadedProperties = loadedProperties;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
-			this.baseDir = (File) loadedProperties.get(Simulation_MetaPop.PROP_BASEDIR);
+			this.baseDir = (File) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR);
 			this.map_indiv = (ConcurrentHashMap<Integer, int[]>) loadedProperties
-					.get(Simulation_MetaPop.PROP_INDIV_STAT);
-			this.extraPartner_record = (List<int[]>) loadedProperties.get(Simulation_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
+					.get(Simulation_Gen_MetaPop.PROP_INDIV_STAT);
+			this.extraPartner_record = (List<int[]>) loadedProperties.get(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
 
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
 		}
-		if (loadedProperties.containsKey(Simulation_MetaPop.PROP_PRELOAD_FILES)) {
-			preloadLines = (Boolean) loadedProperties.get(Simulation_MetaPop.PROP_PRELOAD_FILES);
+		if (loadedProperties.containsKey(Simulation_Gen_MetaPop.PROP_PRELOAD_FILES)) {
+			preloadLines = (Boolean) loadedProperties.get(Simulation_Gen_MetaPop.PROP_PRELOAD_FILES);
 		}
 		pattern_filename_movement = Pattern.compile(
 				String.format(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT, "(\\d+)_(\\d+)", mapSeed));

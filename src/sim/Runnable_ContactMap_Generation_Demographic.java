@@ -34,7 +34,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 		this.mapSeed = mapSeed;
 		this.loadedProperties = loadedProperties;
 		try {
-			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_MetaPop.PROP_LOC_MAP);
+			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_Gen_MetaPop.PROP_LOC_MAP);
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
@@ -90,7 +90,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 
 		@SuppressWarnings("unchecked")
 		List<int[]> extraPartner_record = (List<int[]>) loadedProperties
-				.get(Simulation_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
+				.get(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
 		if (extraPartner_record != null) {
 			extraPartner_record.sort(new Comparator<int[]>() {
 				@Override
@@ -102,7 +102,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 					return res;
 				}
 			});
-			File baseDir = (File) loadedProperties.get(Simulation_MetaPop.PROP_BASEDIR);
+			File baseDir = (File) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR);
 			try {
 				PrintWriter pWri = new PrintWriter(
 						new File(baseDir, String.format(FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, mapSeed)));
