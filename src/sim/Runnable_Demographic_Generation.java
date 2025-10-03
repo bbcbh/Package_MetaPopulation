@@ -6,6 +6,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -290,7 +291,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 				}
 			}
 			// Movement - Return home
-			ArrayList<Integer> return_home_pids = map_indivdual_return.remove(currentTime);				
+			ArrayList<Integer> return_home_pids = map_indivdual_return.remove(currentTime);
 			if (return_home_pids != null) {
 				Collections.sort(return_home_pids);
 				for (int pid : return_home_pids) {
@@ -302,13 +303,13 @@ public class Runnable_Demographic_Generation implements Runnable {
 					}
 				}
 			}
-			
+
 			// Movement - Away from home
 			for (Integer pop_id : pop_id_arr) {
 				int[] pop_size_by_grps = (int[]) node_info.get(pop_id).get(Map_Location_Mobility.NODE_INFO_POP_SIZE);
 				Integer[] grpArray = map_group_member_by_pop.get(pop_id).keySet().toArray(new Integer[0]);
 				Arrays.sort(grpArray);
-				
+
 				float[] num_away_by_grp = (float[]) node_info.get(pop_id).get(Map_Location_Mobility.NODE_INFO_AWAY);
 				for (int g = 0; g < pop_size_by_grps.length; g++) {
 					ArrayList<Integer> pids_at_home = new ArrayList<>();
@@ -362,7 +363,24 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 		HashMap<Integer, PrintWriter> demo_priWri = new HashMap<>();
 
-		for (Entry<Integer, int[]> ent : map_indiv.entrySet()) {
+		// Sort individuals in term of INDEX_MAP_INDIV_ENTER_AT rather than person
+		ArrayList<Entry<Integer, int[]>> ent_arr = new ArrayList<>(map_indiv.entrySet());
+		Collections.sort(ent_arr, new Comparator<Entry<Integer, int[]>>() {
+			@Override
+			public int compare(Entry<Integer, int[]> o1, Entry<Integer, int[]> o2) {
+				int res = Integer.compare(
+						o1.getValue()[INDEX_MAP_INDIV_ENTER_AT],
+						o2.getValue()[INDEX_MAP_INDIV_ENTER_AT]);
+				
+				if(res == 0) {
+					res = o1.getKey().compareTo(o2.getKey());
+				}				
+				return res;
+			}
+
+		});
+
+		for (Entry<Integer, int[]> ent : ent_arr) {
 			int homeLoc = ent.getValue()[INDEX_MAP_INDIV_ENTER_LOC];
 			try {
 				PrintWriter pWri = demo_priWri.get(homeLoc);
@@ -413,11 +431,5 @@ public class Runnable_Demographic_Generation implements Runnable {
 		}
 		move_str.append(String.format("%d,%d\n", move_time, pid));
 	}
-	
-	
-	
-	
-	
-	
 
 }
