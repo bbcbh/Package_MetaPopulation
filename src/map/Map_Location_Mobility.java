@@ -11,13 +11,15 @@ import java.util.Map.Entry;
  */
 
 public class Map_Location_Mobility extends Abstract_Map_Location {
-	private static final long serialVersionUID = -5125249131068160422L;
+	private static final long serialVersionUID = -5125249131068160423L;
 
-	// Default header based on IREG from ABS
-	public String nodeInfo_header = "POP_ID,Name" + ",M_15-19_I,M_20-24_I,M_25-29_I,M_30-34_I,M_35-39_I"
-			+ ",F_15-19_I,F_20-24_I,F_25-29_I,F_30-34_I,F_35-39_I"
-			+ ",M_15-19_N,M_20-24_N,M_25-29_N,M_30-34_N,M_35-39_N"
-			+ ",F_15-19_N,F_20-24_N,F_25-29_N,F_30-34_N,F_35-39_N"; 
+	
+	public String nodeInfo_header = null; 
+//  Default header based on IREG from ABS		
+//			"POP_ID,Name" + ",M_15-19_I,M_20-24_I,M_25-29_I,M_30-34_I,M_35-39_I"
+//			+ ",F_15-19_I,F_20-24_I,F_25-29_I,F_30-34_I,F_35-39_I"
+//			+ ",M_15-19_N,M_20-24_N,M_25-29_N,M_30-34_N,M_35-39_N"
+//			+ ",F_15-19_N,F_20-24_N,F_25-29_N,F_30-34_N,F_35-39_N"; 
 
 	public static final int INDEX_POP_ID = 0;
 	public static final int INDEX_NAME = 1;
@@ -30,8 +32,10 @@ public class Map_Location_Mobility extends Abstract_Map_Location {
 	}
 	public Map_Location_Mobility(String custom_nodeInfo_header) {
 		nodeInfo_header = custom_nodeInfo_header;
-	}	
-	
+	}		
+	public String getNodeInfo_header() {
+		return nodeInfo_header;
+	}
 	
 	public void exportNodeInfoToString(PrintWriter pwri_nodeInfo) {
 		pwri_nodeInfo.println(nodeInfo_header);
@@ -67,7 +71,11 @@ public class Map_Location_Mobility extends Abstract_Map_Location {
 
 	private void fillNodeInfoFromString(BufferedReader reader, String mapType)
 			throws IOException {
-		String line;
+		String line;		
+		if(nodeInfo_header == null) {
+			nodeInfo_header = reader.readLine();
+		}				
+		
 		String[] headerTxt = nodeInfo_header.split(",");
 
 		while ((line = reader.readLine()) != null) {
