@@ -3,6 +3,7 @@ package sim;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -339,13 +340,13 @@ public class Runnable_Demographic_Generation implements Runnable {
 							}
 						}
 					}
-					
-					
-					int num_home_expected = Math.round( model_pop_size * (pop_size_by_grps[g]/total_pop_size) * (1 - num_away_by_grp[g] / 100f));
+
+					int num_home_expected = Math.round(
+							model_pop_size * (pop_size_by_grps[g] / total_pop_size) * (1 - num_away_by_grp[g] / 100f));
 
 					int[] pop_target = lookup_edge_target_array.get(pop_id);
 					double[] target_weight = lookup_edge_weight_array.get(pop_id);
-					
+
 					while (pids_at_home.size() > num_home_expected && target_weight.length > 0) {
 						int pid = pids_at_home.remove(RNG.nextInt(pids_at_home.size()));
 						// Movement
@@ -375,61 +376,90 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 			}
 
+			// Print demographic CSV Yearly
+
+			if (currentTime % AbstractIndividualInterface.ONE_YEAR_INT == 0 || currentTime + 1 > max_time) {
+
+				HashMap<Integer, PrintWriter> demo_priWri = new HashMap<>();
+
+				// Sort individuals in term of INDEX_MAP_INDIV_ENTER_AT rather than person
+				ArrayList<Entry<Integer, int[]>> ent_arr = new ArrayList<>(map_indiv.entrySet());
+				Collections.sort(ent_arr, new Comparator<Entry<Integer, int[]>>() {
+					@Override
+					public int compare(Entry<Integer, int[]> o1, Entry<Integer, int[]> o2) {
+						int res = Integer.compare(o1.getValue()[INDEX_MAP_INDIV_ENTER_AT],
+								o2.getValue()[INDEX_MAP_INDIV_ENTER_AT]);
+
+						if (res == 0) {
+							res = o1.getKey().compareTo(o2.getKey());
+						}
+						return res;
+					}
+
+				});
+
+				File resultBackup = new File(baseDir, "RESULT_BACKUP");
+				resultBackup.mkdirs();
+				File[] backup_to_be_remove = resultBackup.listFiles();
+
+				File tarFile;
+				for (Entry<Integer, int[]> ent : ent_arr) {
+					int homeLoc = ent.getValue()[INDEX_MAP_INDIV_ENTER_LOC];
+					try {
+						PrintWriter pWri = demo_priWri.get(homeLoc);
+						if (pWri == null) {
+							tarFile = new File(baseDir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed));
+
+							if (tarFile.exists()) {
+								Files.copy(tarFile.toPath(),
+										new File(resultBackup, String.format("P%d_%s", currentTime, tarFile.getName()))
+												.toPath());
+							}
+
+							pWri = new PrintWriter(tarFile);
+							pWri.println(FILE_HEADER_DEMOGRAPHIC);
+							demo_priWri.put(homeLoc, pWri);
+						}
+						pWri.printf("%d,%d,%d,%d,%d\n", ent.getKey(), ent.getValue()[INDEX_MAP_INDIV_ENTER_AT],
+								ent.getValue()[INDEX_MAP_INDIV_EXIT_AT], ent.getValue()[INDEX_MAP_INDIV_ENTER_AGE],
+								ent.getValue()[INDEX_MAP_INDIV_ENTER_GRP]);
+					} catch (IOException e) {
+						e.printStackTrace(System.err);
+					}
+				}
+				for (PrintWriter pWri : demo_priWri.values()) {
+					pWri.close();
+				}
+
+				// Print movement CSV
+				for (Entry<String, StringBuilder> ent : map_movement_strBuilder.entrySet()) {
+					try {
+						tarFile = new File(baseDir, String.format(FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed));
+						PrintWriter pWri = new PrintWriter(tarFile);
+						pWri.println(FILE_HEADER_MOVEMENT);
+						pWri.print(ent.getValue().toString());
+						pWri.close();
+					} catch (IOException e) {
+						e.printStackTrace(System.err);
+					}
+				}
+
+				for (File rembackup : backup_to_be_remove) {
+					try {
+						Files.delete(rembackup.toPath());
+					} catch (IOException e) {
+						e.printStackTrace(System.err);
+					}
+				}
+
+				System.out.printf(
+						"Demographic / Mobility generation for mapSeed=%d up to t=%d. Time required = %.3fs\n", mapSeed,
+						currentTime, (System.currentTimeMillis() - tic) / 1000.0);
+
+			}
+
 			currentTime++;
-		}
 
-		// Print demographic CSV
-
-		HashMap<Integer, PrintWriter> demo_priWri = new HashMap<>();
-
-		// Sort individuals in term of INDEX_MAP_INDIV_ENTER_AT rather than person
-		ArrayList<Entry<Integer, int[]>> ent_arr = new ArrayList<>(map_indiv.entrySet());
-		Collections.sort(ent_arr, new Comparator<Entry<Integer, int[]>>() {
-			@Override
-			public int compare(Entry<Integer, int[]> o1, Entry<Integer, int[]> o2) {
-				int res = Integer.compare(o1.getValue()[INDEX_MAP_INDIV_ENTER_AT],
-						o2.getValue()[INDEX_MAP_INDIV_ENTER_AT]);
-
-				if (res == 0) {
-					res = o1.getKey().compareTo(o2.getKey());
-				}
-				return res;
-			}
-
-		});
-
-		for (Entry<Integer, int[]> ent : ent_arr) {
-			int homeLoc = ent.getValue()[INDEX_MAP_INDIV_ENTER_LOC];
-			try {
-				PrintWriter pWri = demo_priWri.get(homeLoc);
-				if (pWri == null) {
-					pWri = new PrintWriter(
-							new File(baseDir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed)));
-					pWri.println(FILE_HEADER_DEMOGRAPHIC);
-					demo_priWri.put(homeLoc, pWri);
-				}
-				pWri.printf("%d,%d,%d,%d,%d\n", ent.getKey(), ent.getValue()[INDEX_MAP_INDIV_ENTER_AT],
-						ent.getValue()[INDEX_MAP_INDIV_EXIT_AT], ent.getValue()[INDEX_MAP_INDIV_ENTER_AGE],
-						ent.getValue()[INDEX_MAP_INDIV_ENTER_GRP]);
-			} catch (IOException e) {
-				e.printStackTrace(System.err);
-			}
-		}
-		for (PrintWriter pWri : demo_priWri.values()) {
-			pWri.close();
-		}
-
-		// Print movement CSV
-		for (Entry<String, StringBuilder> ent : map_movement_strBuilder.entrySet()) {
-			try {
-				PrintWriter pWri = new PrintWriter(
-						new File(baseDir, String.format(FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed)));
-				pWri.println(FILE_HEADER_MOVEMENT);
-				pWri.print(ent.getValue().toString());
-				pWri.close();
-			} catch (IOException e) {
-				e.printStackTrace(System.err);
-			}
 		}
 
 		System.out.printf("Demographic / Mobility generation for mapSeed=%d completed. Time required = %.3fs\n",
