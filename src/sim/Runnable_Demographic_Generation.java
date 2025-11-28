@@ -191,7 +191,10 @@ public class Runnable_Demographic_Generation implements Runnable {
 				maxAge = Math.max(maxAge, age_range[1]);
 
 				int numPersonInGrp = 0;
-				while (numPersonInGrp < Math.round(model_pop_size * pop_size_by_grps[g] / total_pop_size)) {
+				double maxNumPersonInGrp =  ((long) model_pop_size) * pop_size_by_grps[g] / total_pop_size;
+				System.out.printf("Pop #%d Grp %d = %d\n", pop_id, g, (int) maxNumPersonInGrp);				
+				
+				while (numPersonInGrp < maxNumPersonInGrp) {
 					int[] indiv_ent = new int[LENGTH_MAP_INDIV];
 					indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] = pop_id;
 					indiv_ent[INDEX_MAP_INDIV_ENTER_AT] = currentTime;
