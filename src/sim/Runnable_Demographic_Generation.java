@@ -9,7 +9,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map.Entry;
-import java.util.Properties;
 import java.util.Set;
 
 import org.jgrapht.graph.DefaultWeightedEdge;
@@ -21,7 +20,7 @@ import random.RandomGenerator;
 
 public class Runnable_Demographic_Generation implements Runnable {
 
-	private Properties loadedProperties;
+	private HashMap<String, Object> loadedProperties;
 	private Map_Location_Mobility loc_map;
 	private File baseDir;
 	private RandomGenerator RNG;
@@ -29,8 +28,6 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 	public static final String FILENAME_FORMAT_DEMOGRAPHIC = "Demographic_%d_%d.csv"; // POP_ID, SEED
 	public static final String FILENAME_FORMAT_MOVEMENT = "Movement_%s_%d.csv"; // POPSRC_POPTAR , SEED
-	public static final String FILENAME_FORMAT_CMAP_BY_POP = "ContactMap_Pop_%d_%d.csv"; // POP_ID , SEED
-
 	private static final String FILE_HEADER_DEMOGRAPHIC = "PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP";
 	private static final String FILE_HEADER_MOVEMENT = "TIME,PID";
 
@@ -56,13 +53,13 @@ public class Runnable_Demographic_Generation implements Runnable {
 	// filename_NoteInfo.csv
 	public static final int RUNNABLE_FIELD_CONTACT_MAP_LOCATION_MAP_PATH = Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_NUMBER_OF_GRP;
 
-	public Runnable_Demographic_Generation(long mapSeed, Properties loadedProperties) {
+	public Runnable_Demographic_Generation(long mapSeed, HashMap<String, Object> loadedProperties) {
 		this.loadedProperties = loadedProperties;
 		this.mapSeed = mapSeed;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
 			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_Gen_MetaPop.PROP_LOC_MAP);
-			this.baseDir = (File) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR);
+			this.baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
@@ -77,17 +74,17 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 		// Properties
 		int max_time = Integer.parseInt(
-				loadedProperties.getProperty(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
-				* Integer.parseInt(loadedProperties
-						.getProperty(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
+				(String) loadedProperties.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
+				* Integer.parseInt((String) loadedProperties
+						.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
 
-		int[][] age_dist = (int[][]) util.PropValUtils.propStrToObject(loadedProperties.getProperty(String.format(
+		int[][] age_dist = (int[][]) util.PropValUtils.propStrToObject((String) loadedProperties.get(String.format(
 				"%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 				Runnable_ClusterModel_ContactMap_Generation_MultiMap.RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST)),
 				int[][].class);
 
 		int[] intSetting = (int[]) util.PropValUtils.propStrToObject(
-				loadedProperties.getProperty(String.format("%s%d",
+				(String) loadedProperties.get(String.format("%s%d",
 						Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX, RUNNABLE_FIELD_INT_SETTING)),
 				int[].class);
 
@@ -132,23 +129,38 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 		// Set edge weight
 		for (Integer pop_id : pop_id_arr) {
-			Set<DefaultWeightedEdge> connections = loc_map.outgoingEdgesOf(pop_id);
-			int[] target_pop = new int[connections.size()];
-			double[] edge_weight = new double[connections.size()];
-			double weight_offset = 0;
-			int weight_pt = 0;
-			for (DefaultWeightedEdge connc : connections) {
-				target_pop[weight_pt] = loc_map.getEdgeTarget(connc);
-				// Assume to be proportional to target population size if > 0, or direct weight
-				// if < 0
-				weight_offset += loc_map.getEdgeWeight(connc) >= 0
-						? loc_map.getEdgeWeight(connc) * lookup_pop_size_all_grps.get(target_pop[weight_pt])
-						: -loc_map.getEdgeWeight(connc);
-				edge_weight[weight_pt] = weight_offset;
-				weight_pt++;
+
+			if (loc_map.containsVertex(pop_id)) {
+				Set<DefaultWeightedEdge> connections = loc_map.outgoingEdgesOf(pop_id);
+				int[] target_pop = new int[connections.size()];
+				double[] edge_weight = new double[connections.size()];
+				double weight_offset = 0;
+				int weight_pt = 0;
+				for (DefaultWeightedEdge connc : connections) {
+					target_pop[weight_pt] = loc_map.getEdgeTarget(connc);
+					Integer target_pop_size = lookup_pop_size_all_grps.get(target_pop[weight_pt]);
+					if (target_pop_size == null) {
+						System.out.printf("Warning: Pop size for Pop #%s not found. Assume to be zero.\n",
+								target_pop[weight_pt]);
+						target_pop_size = 0;
+					}
+
+					// Assume to be proportional to target population size if > 0, or direct weight
+					// if < 0
+					weight_offset += loc_map.getEdgeWeight(connc) >= 0 ? loc_map.getEdgeWeight(connc) * target_pop_size
+							: -loc_map.getEdgeWeight(connc);
+					edge_weight[weight_pt] = weight_offset;
+					weight_pt++;
+				}
+				lookup_edge_target_array.put(pop_id, target_pop);
+				lookup_edge_weight_array.put(pop_id, edge_weight);
+			} else {
+				System.out.printf("Warning: PopID #%s is not connected to rest of the map. Assume to be isolated.\n",
+						pop_id);
+				
+				lookup_edge_target_array.put(pop_id, new int[0]);
+				lookup_edge_weight_array.put(pop_id, new double[0]);
 			}
-			lookup_edge_target_array.put(pop_id, target_pop);
-			lookup_edge_weight_array.put(pop_id, edge_weight);
 		}
 
 		// Initialise population
@@ -209,7 +221,6 @@ public class Runnable_Demographic_Generation implements Runnable {
 		}
 		// Time step
 		while (currentTime < max_time) {
-
 			// Aging
 			for (Integer pop_id : pop_id_arr) {
 				for (int g = 0; g < ((int[]) node_info.get(pop_id)
@@ -368,13 +379,12 @@ public class Runnable_Demographic_Generation implements Runnable {
 		Collections.sort(ent_arr, new Comparator<Entry<Integer, int[]>>() {
 			@Override
 			public int compare(Entry<Integer, int[]> o1, Entry<Integer, int[]> o2) {
-				int res = Integer.compare(
-						o1.getValue()[INDEX_MAP_INDIV_ENTER_AT],
+				int res = Integer.compare(o1.getValue()[INDEX_MAP_INDIV_ENTER_AT],
 						o2.getValue()[INDEX_MAP_INDIV_ENTER_AT]);
-				
-				if(res == 0) {
+
+				if (res == 0) {
 					res = o1.getKey().compareTo(o2.getKey());
-				}				
+				}
 				return res;
 			}
 

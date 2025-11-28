@@ -25,7 +25,7 @@ import sim.Abstract_Runnable_ClusterModel;
 import sim.Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection;
 import sim.Simulation_ClusterModelTransmission;
 
-public class Util_Analyse_RMP {
+public class Util_Analyse_MetaPopulation {
 
 	public static void extract_inf_num_infection_to_csv(File scenario_dirs_incl, int[][] colIndex, String fname)
 			throws IOException, FileNotFoundException {

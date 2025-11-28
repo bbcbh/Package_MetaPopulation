@@ -13,24 +13,24 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import map.Map_Location_Mobility;
 
-public class Runnable_ContactMap_Generation_Demographic implements Runnable {
+public class Runnable_ContactMap_Generation implements Runnable {
 
-	private Properties loadedProperties;
+	private HashMap<String, Object> loadedProperties;
 	private Map_Location_Mobility loc_map;
 	private long mapSeed;
+	public static final String FILENAME_FORMAT_CMAP_BY_POP = "ContactMap_Pop_%d_%d.csv"; // POP_ID , SEED
 	public static final String POP_TYPE = "MetaPop_By_Location_Mobility";
 
 	private static final String FILE_HEADER_EXTRA_PARTNER_SOUGHT = "TIME_FROM,PID,EXTRA_PARTNER_SOUGHT";
 	public static final String FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT = "Extra_partner_sought_%d.csv"; // SEED
 	public static final String FILENAME_FORMAT_POP_INDEX_MAP = "PopIndex_Mapping_%d.csv"; // SEED
 
-	public Runnable_ContactMap_Generation_Demographic(long mapSeed, Properties loadedProperties) {
+	public Runnable_ContactMap_Generation(long mapSeed, HashMap<String, Object> loadedProperties) {
 		this.mapSeed = mapSeed;
 		this.loadedProperties = loadedProperties;
 		try {
@@ -41,7 +41,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 		}
 	}
 
-	protected Properties getLoadedProperties() {
+	protected HashMap<String, Object> getLoadedProperties() {
 		return loadedProperties;
 	}
 
@@ -67,10 +67,10 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 		}
 
 		int currentTime = 0;
-		int max_time = Integer.parseInt(
-				loadedProperties.getProperty(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
-				* Integer.parseInt(loadedProperties
-						.getProperty(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
+		int max_time = Integer.parseInt((String)
+				loadedProperties.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
+				* Integer.parseInt((String) loadedProperties
+						.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
 
 		while (currentTime < max_time) {
 			for (int i = 0; i < pop_ids.length; i++) {
@@ -131,7 +131,7 @@ public class Runnable_ContactMap_Generation_Demographic implements Runnable {
 		}
 		Pattern pattern_demographic = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_DEMOGRAPHIC
 				.replaceFirst("%d", "(\\\\d+)").replaceFirst("%d", Long.toString(seed)));
-		Pattern pattern_cMap_by_pop = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_CMAP_BY_POP
+		Pattern pattern_cMap_by_pop = Pattern.compile(Runnable_ContactMap_Generation.FILENAME_FORMAT_CMAP_BY_POP
 				.replaceFirst("%d", "(\\\\d+)").replaceFirst("%d", Long.toString(seed)));
 
 		HashMap<String, Integer> popIdToIndex = new HashMap<>();

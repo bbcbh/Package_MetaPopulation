@@ -65,22 +65,15 @@ public abstract class Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInf
 	protected static final String key_pop_size = "EXPORT_POP_SIZE";
 	protected static final String FILENAME_EXPORT_POP_SIZE = "Pop_size_%d_%d.csv";
 
-	public static final String PROP_BASEDIR = "PROP_BASEDIR";
-	public static final String PROP_LOC_MAP = "PROP_LOC_MAP";
-	public static final String PROP_PRELOAD_FILES = "PROP_PRELOAD_FILES";
-	public static final String PROP_INDIV_STAT = "PROP_INDIV_STAT";
-	public static final String PROP_PARNTER_EXTRA_SOUGHT = "PROP_PARNTER_EXTRA_SOUGHT";
-	public static final String PROP_CONTACT_MAP_LOC = "PROP_CONTACT_MAP_LOC";
-
 	protected final File dir_demographic;	
 	private boolean preloadMovementFile = false;
 
 	public Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection(long cMap_seed, long sim_seed,
 			Properties prop, int NUM_INF, int NUM_SITE, int NUM_ACT) {
 		super(cMap_seed, sim_seed, null, prop, NUM_INF, NUM_SITE, NUM_ACT);
-		this.setBaseDir((File) prop.get(PROP_BASEDIR));
+		this.setBaseDir((File) prop.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
 		this.setBaseProp(prop);
-		this.dir_demographic = new File(baseProp.getProperty(PROP_CONTACT_MAP_LOC));
+		this.dir_demographic = new File(baseProp.getProperty(Simulation_Gen_MetaPop.PROP_CONTACT_MAP_LOC));
 
 		Pattern pattern_movement_csv = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
 				.replaceAll("%d", Long.toString(cMap_seed)).replaceAll("%s", "(\\\\d+_\\\\d+)"));

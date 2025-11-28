@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -45,7 +44,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	protected LineCollectionEntry lines_demographic;
 	protected long mapSeed;
 	protected int popId;
-	protected Properties loadedProperties;
+	protected HashMap<String, Object> loadedProperties;
 
 	protected ArrayList<LineCollectionEntry> lines_outflow = new ArrayList<>();
 	protected ArrayList<LineCollectionEntry> lines_inflow = new ArrayList<>();
@@ -119,7 +118,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	};
 
 	@SuppressWarnings("unchecked")
-	public StepWiseOperation_ContactMap_Generation_Demographic(long mapSeed, int popId, Properties loadedProperties) {
+	public StepWiseOperation_ContactMap_Generation_Demographic(long mapSeed, int popId, HashMap<String, Object> loadedProperties) {
 		this.mapSeed = mapSeed;
 		this.popId = popId;
 		this.loadedProperties = loadedProperties;
@@ -185,15 +184,15 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		}
 
 		// POP_PROP_INIT_PREFIX_3
-		mat_age_range = (int[][]) util.PropValUtils.propStrToObject(loadedProperties
-				.getProperty(String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
+		mat_age_range = (int[][]) util.PropValUtils.propStrToObject((String) loadedProperties
+				.get(String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 						RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST)),
 				int[][].class);
 
 		// POP_PROP_INIT_PREFIX_4
 		partnership_by_snap = (double[][]) util.PropValUtils
-				.propStrToObject(
-						loadedProperties.getProperty(
+				.propStrToObject((String)
+						loadedProperties.get(
 								String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 										RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP)),
 						double[][].class);
@@ -213,8 +212,8 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 
 		// POP_PROP_INIT_PREFIX_5
 		mat_mixing = (double[][]) util.PropValUtils
-				.propStrToObject(
-						loadedProperties.getProperty(
+				.propStrToObject((String)
+						loadedProperties.get(
 								String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 										RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING)),
 						double[][].class);
@@ -464,7 +463,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		}
 		// Write contact map
 		File cMapFile = new File(baseDir,
-				String.format(Runnable_Demographic_Generation.FILENAME_FORMAT_CMAP_BY_POP, popId, mapSeed));
+				String.format(Runnable_ContactMap_Generation.FILENAME_FORMAT_CMAP_BY_POP, popId, mapSeed));
 		try {
 			PrintWriter pWri = new PrintWriter(cMapFile);
 			for (int[] partnership : pairing) {
