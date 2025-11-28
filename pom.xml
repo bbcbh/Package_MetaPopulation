@@ -56,10 +56,5 @@
 			<artifactId>base_model</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
-		<dependency>
-			<groupId>Launcher_RMP_GenMap</groupId>
-			<artifactId>Launcher_RMP_GenMap</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
-		</dependency>
   </dependencies>
 </project>
