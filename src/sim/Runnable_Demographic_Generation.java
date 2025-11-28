@@ -111,7 +111,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 		Integer[] pop_id_arr = node_info.keySet().toArray(new Integer[0]);
 		Arrays.sort(pop_id_arr);
 
-		int model_pop_size = intSetting[INT_SETTING_TOTAL_POP_SIZE];
+		long model_pop_size = intSetting[INT_SETTING_TOTAL_POP_SIZE];
 		float total_pop_size = 0;
 
 		long tic = System.currentTimeMillis();
@@ -157,7 +157,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 			} else {
 				System.out.printf("Warning: PopID #%s is not connected to rest of the map. Assume to be isolated.\n",
 						pop_id);
-				
+
 				lookup_edge_target_array.put(pop_id, new int[0]);
 				lookup_edge_weight_array.put(pop_id, new double[0]);
 			}
@@ -191,9 +191,10 @@ public class Runnable_Demographic_Generation implements Runnable {
 				maxAge = Math.max(maxAge, age_range[1]);
 
 				int numPersonInGrp = 0;
-				double maxNumPersonInGrp =  ((long) model_pop_size) * pop_size_by_grps[g] / total_pop_size;
-				System.out.printf("Pop #%d Grp %d = %d\n", pop_id, g, (int) maxNumPersonInGrp);				
-				
+				double maxNumPersonInGrp = ((long) model_pop_size) * pop_size_by_grps[g] / total_pop_size;
+				// System.out.printf("Pop #%d Grp %d = %d\n", pop_id, g, (int)
+				// maxNumPersonInGrp);
+
 				while (numPersonInGrp < maxNumPersonInGrp) {
 					int[] indiv_ent = new int[LENGTH_MAP_INDIV];
 					indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] = pop_id;
@@ -272,11 +273,12 @@ public class Runnable_Demographic_Generation implements Runnable {
 				Integer[] grpArray = map_group_member_by_pop.get(pop_id).keySet().toArray(new Integer[0]);
 				Arrays.sort(grpArray);
 				for (int g = 0; g < pop_size_by_grps.length; g++) {
-					int gSize = Math.round(model_pop_size * pop_size_by_grps[g] / total_pop_size);
+					int gSize = Math.round(((long) model_pop_size) * pop_size_by_grps[g] / total_pop_size);
 					grpPids = map_group_member_by_pop.get(pop_id).get(g);
 					while (grpPids.size() != gSize) {
 						if (grpPids.size() > gSize) {
 							// Remove individuals from group
+
 							int remove_pid = grpPids.remove(RNG.nextInt(grpPids.size()));
 							int[] indiv_ent = map_indiv.get(remove_pid);
 							if (indiv_ent[INDEX_MAP_INDIV_ENTER_LOC] != indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC]) {
@@ -287,6 +289,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 							indiv_ent[INDEX_MAP_INDIV_EXIT_AT] = currentTime;
 							indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] = -1;
 							indiv_ent[INDEX_MAP_INDIV_CURRENT_LOC] = -1;
+
 						} else if (grpPids.size() < gSize) {
 							// Add individuals from group
 							grpPids.add(~Collections.binarySearch(grpPids, nextId), nextId);
@@ -336,14 +339,16 @@ public class Runnable_Demographic_Generation implements Runnable {
 							}
 						}
 					}
-					int num_home_expected = Math.round(pop_size_by_grps[g] * (1 - num_away_by_grp[g] / 100f));
+					
+					
+					int num_home_expected = Math.round( model_pop_size * (pop_size_by_grps[g]/total_pop_size) * (1 - num_away_by_grp[g] / 100f));
 
-					while (pids_at_home.size() > num_home_expected) {
+					int[] pop_target = lookup_edge_target_array.get(pop_id);
+					double[] target_weight = lookup_edge_weight_array.get(pop_id);
+					
+					while (pids_at_home.size() > num_home_expected && target_weight.length > 0) {
 						int pid = pids_at_home.remove(RNG.nextInt(pids_at_home.size()));
 						// Movement
-						int[] pop_target = lookup_edge_target_array.get(pop_id);
-						double[] target_weight = lookup_edge_weight_array.get(pop_id);
-
 						double pTar = RNG.nextDouble() * target_weight[target_weight.length - 1];
 						int tar_pt = Arrays.binarySearch(target_weight, pTar);
 						if (tar_pt < 0) {
