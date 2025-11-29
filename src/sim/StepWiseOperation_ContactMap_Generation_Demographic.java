@@ -328,10 +328,12 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 					ArrayList<Integer> grp_inc_count = new ArrayList<>();
 					int cumul_count = 0;
 					for (int g = 0; g < map_available_by_grp.size(); g++) {
-						if ((grp_inc & (1 << g)) != 0) {
-							grp_inc_list.add(g);														
-							cumul_count += map_available_by_grp.get(g).size();
-							grp_inc_count.add(cumul_count);
+						if ((grp_inc & (1 << g)) != 0) {							
+							if (map_available_by_grp.get(g) != null) {
+								grp_inc_list.add(g);
+								cumul_count += map_available_by_grp.get(g).size();
+								grp_inc_count.add(cumul_count);
+							}
 						}
 					}
 
@@ -341,7 +343,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 							pt = ~pt;
 						}
 						grp_sought = grp_inc_list.get(pt);
-					} else {						
+					} else {
 						// No suitable group
 						grp_sought = -1;
 
