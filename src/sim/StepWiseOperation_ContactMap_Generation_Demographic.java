@@ -307,7 +307,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 					// Format for mixing:
 					// [age_grp_num_seek, prob_reg, -num_grp_incl, age_grp_incl_sought_0, ...
 					// age_grp_incl_sought_prob_cumul_0...]
-					
+
 					int num_grp_incl = -(int) mixing[MIXING_PROB_START];
 					int mix_prob_start_grp_incl = MIXING_PROB_START + num_grp_incl + 1;
 
@@ -324,25 +324,29 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 								+ "Suggest direct reference to grp instead. \n", mixing[pt - num_grp_incl]);
 						System.exit(1);
 					}
-					
-					// TODO: To be implemented
 					ArrayList<Integer> grp_inc_list = new ArrayList<>();
 					ArrayList<Integer> grp_inc_count = new ArrayList<>();
 					int cumul_count = 0;
-					for(int g = 0; g < map_available_by_grp.size(); g++) {
-						if((grp_inc & 1 << g) != 0) {
-							grp_inc_list.add(g);							
+					for (int g = 0; g < map_available_by_grp.size(); g++) {
+						if ((grp_inc & 1 << g) != 0) {
+							grp_inc_list.add(g);
 							cumul_count += map_available_by_grp.get(g).size();
 							grp_inc_count.add(cumul_count);
 						}
 					}
-					
-					pt = Collections.binarySearch(grp_inc_count, RNG.nextInt(cumul_count));
-					if (pt < 0) {
-						pt = ~pt;
-					}					
-					grp_sought = grp_inc_list.get(pt);
-					
+
+					if (cumul_count > 0) {
+						pt = Collections.binarySearch(grp_inc_count, RNG.nextInt(cumul_count));
+						if (pt < 0) {
+							pt = ~pt;
+						}
+						grp_sought = grp_inc_list.get(pt);
+					} else {						
+						// No suitable group
+						grp_sought = -1;
+
+					}
+
 				} else {
 					// Format for mixing:
 					// [age_grp_num_seek, prob_reg, grpNum_sought_prob_cumul_0,...]
