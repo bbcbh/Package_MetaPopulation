@@ -4,13 +4,14 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,7 +54,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	// Key = PID, V =
 	// ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_AGP,ACTIVIY_GRP,NUM_PARTNER_SEEK,
 	// PARTNER_RECORD
-	protected ConcurrentHashMap<Integer, int[]> map_indiv;
+	protected AbstractMap<Integer, int[]> map_indiv;
 
 	private static final int INDEX_MAP_INDIV_ENTER_AT = 0;
 	private static final int INDEX_MAP_INDIV_EXIT_AT = INDEX_MAP_INDIV_ENTER_AT + 1;
@@ -72,16 +73,12 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	private RandomGenerator RNG;
 	private int[][] mat_age_range;
 
-	// Format:
-	// double[grpNum][] = {duration_mean, duration_sd, Cumul_Probability_0..,
-	// Min_Partner_0..., Max_Partner_0, ...}
 	private double[][] partnership_by_snap;
-	private static final int PARTNERSHIP_REG_DUR_MEAN = 0;
+	private static final int PARTNERSHIP_REG_DUR_GRP_NUM = 0;
+	private static final int PARTNERSHIP_REG_DUR_MEAN = PARTNERSHIP_REG_DUR_GRP_NUM+1;
 	private static final int PARTNERSHIP_REG_DUR_SD = PARTNERSHIP_REG_DUR_MEAN + 1;
 	private static final int PARTNERSHIP_PROB_START = PARTNERSHIP_REG_DUR_SD + 1;
 
-	// Format:
-	// double[grpNum_seek, prob_reg, grpNum_sought_0,...] as cumulative prob
 	private double[][] mat_mixing;
 	private static final int MIXING_GRP_NUM = 0;
 	private static final int MIXING_PROB_REG = MIXING_GRP_NUM + 1;
@@ -118,16 +115,17 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	};
 
 	@SuppressWarnings("unchecked")
-	public StepWiseOperation_ContactMap_Generation_Demographic(long mapSeed, int popId, HashMap<String, Object> loadedProperties) {
+	public StepWiseOperation_ContactMap_Generation_Demographic(long mapSeed, int popId,
+			HashMap<String, Object> loadedProperties) {
 		this.mapSeed = mapSeed;
 		this.popId = popId;
 		this.loadedProperties = loadedProperties;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
-			this.baseDir = (File) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR);
-			this.map_indiv = (ConcurrentHashMap<Integer, int[]>) loadedProperties
-					.get(Simulation_Gen_MetaPop.PROP_INDIV_STAT);
-			this.extraPartner_record = (List<int[]>) loadedProperties.get(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
+			this.baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+			this.map_indiv = (AbstractMap<Integer, int[]>) loadedProperties.get(Simulation_Gen_MetaPop.PROP_INDIV_STAT);
+			this.extraPartner_record = (List<int[]>) loadedProperties
+					.get(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
 
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
@@ -191,9 +189,9 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 
 		// POP_PROP_INIT_PREFIX_4
 		partnership_by_snap = (double[][]) util.PropValUtils
-				.propStrToObject((String)
-						loadedProperties.get(
-								String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
+				.propStrToObject(
+						(String) loadedProperties
+								.get(String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 										RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_BY_SNAP)),
 						double[][].class);
 
@@ -207,14 +205,14 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 					/ row_sel[PARTNERSHIP_REG_DUR_MEAN];
 			// shape = mean / scale i.e. mean / (var / mean)
 			double shape = row_sel[PARTNERSHIP_REG_DUR_MEAN] / scale;
-			rel_duration_dist[g] = new GammaDistribution(RNG, shape, scale);
+			rel_duration_dist[(int) row_sel[PARTNERSHIP_REG_DUR_GRP_NUM]] = new GammaDistribution(RNG, shape, scale);
 		}
 
 		// POP_PROP_INIT_PREFIX_5
 		mat_mixing = (double[][]) util.PropValUtils
-				.propStrToObject((String)
-						loadedProperties.get(
-								String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
+				.propStrToObject(
+						(String) loadedProperties
+								.get(String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 										RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING)),
 						double[][].class);
 
@@ -238,7 +236,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 
 		Integer[] grpIds = map_in_population_by_grp.keySet().toArray(new Integer[0]);
 		for (Integer grpId : grpIds) {
-			// Update activity group (if need)
+			// Update group (if need)
 			ArrayList<Integer> grpPids = map_in_population_by_grp.get(grpId);
 			for (Integer pid : grpPids.toArray(new Integer[0])) {
 				int[] indiv_ent = map_indiv.get(pid);
@@ -404,9 +402,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		}
 	}
 
-	private void updatePartnerSeekingActivity(int pid, int[] indiv_ent) {
-		// Individual want to seek new partner by cannot do so
-
+	private void updatePartnerSeekingActivity(int pid, int[] indiv_ent) {		
 		if (indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] > 0) {
 			// "TIME_FROM,PID,EXTRA_PARTNER_SOUGHT"
 			extraPartner_record.add(new int[] { Math.max(currentTime - AbstractIndividualInterface.ONE_YEAR_INT, 0),
@@ -438,7 +434,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 
 	}
 
-	public void finalise() {
+	public void finalise(int currentTime) {
 		// Close file reader (if needed)
 		if (lines_demographic != null) {
 			try {
@@ -461,15 +457,46 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 				e.printStackTrace(System.err);
 			}
 		}
+		printContactMap(currentTime);
+	}
+
+	public void printContactMap(int currentTime) {
 		// Write contact map
 		File cMapFile = new File(baseDir,
 				String.format(Runnable_ContactMap_Generation.FILENAME_FORMAT_CMAP_BY_POP, popId, mapSeed));
 		try {
+			File[] backup_to_be_remove = new File[0];
+			if (cMapFile.isFile()) {
+				File resultBackup = new File(baseDir, "RESULT_BACKUP_CONTACT_MAP");
+				resultBackup.mkdirs();
+				backup_to_be_remove = resultBackup.listFiles(new FileFilter() {
+					@Override
+					public boolean accept(File pathname) {
+						return pathname.getName().endsWith(cMapFile.getName());
+					}
+				});
+
+				Files.copy(cMapFile.toPath(),
+						new File(resultBackup, String.format("P%d_%s", currentTime, cMapFile.getName())).toPath());
+
+			}
+
 			PrintWriter pWri = new PrintWriter(cMapFile);
 			for (int[] partnership : pairing) {
 				pWri.printf("%d,%d,%d,%d\n", partnership[0], partnership[1], partnership[2], partnership[3]);
 			}
 			pWri.close();
+
+			for (File rembackup : backup_to_be_remove) {
+				if (rembackup.exists()) {
+					try {
+						Files.delete(rembackup.toPath());
+					} catch (IOException e) {
+						e.printStackTrace(System.err);
+					}
+				}
+			}
+
 		} catch (IOException e) {
 			e.printStackTrace(System.err);
 		}

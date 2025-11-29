@@ -8,15 +8,19 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import map.Map_Location_Mobility;
+import person.AbstractIndividualInterface;
 
 public class Runnable_ContactMap_Generation implements Runnable {
 
@@ -39,6 +43,15 @@ public class Runnable_ContactMap_Generation implements Runnable {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
 		}
+
+		// Preload thread-safe HashMap and ArrayList
+//		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_INDIV_STAT, new ConcurrentHashMap<Integer, int[]>());
+//		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT,
+//				Collections.synchronizedList(new ArrayList<int[]>()));
+
+		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_INDIV_STAT, new HashMap<Integer, int[]>());
+		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT, new ArrayList<int[]>());
+
 	}
 
 	protected HashMap<String, Object> getLoadedProperties() {
@@ -67,8 +80,8 @@ public class Runnable_ContactMap_Generation implements Runnable {
 		}
 
 		int currentTime = 0;
-		int max_time = Integer.parseInt((String)
-				loadedProperties.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
+		int max_time = Integer.parseInt(
+				(String) loadedProperties.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
 				* Integer.parseInt((String) loadedProperties
 						.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
 
@@ -82,10 +95,19 @@ public class Runnable_ContactMap_Generation implements Runnable {
 			for (int i = 0; i < pop_ids.length; i++) {
 				steps[i].advanceTimeStep();
 			}
+
+			if (currentTime % AbstractIndividualInterface.ONE_YEAR_INT == 0) {
+				for (int i = 0; i < pop_ids.length; i++) {
+					steps[i].printContactMap(currentTime);
+				}								
+				System.out.printf("Contact map generation for cMap=%d up to t=%d. Time elapsed = %.3fs\n", 
+						mapSeed, currentTime,	(System.currentTimeMillis() - tic) / 1000.0);
+			}
 			currentTime++;
+
 		}
 		for (int i = 0; i < pop_ids.length; i++) {
-			steps[i].finalise();
+			steps[i].finalise(currentTime);
 		}
 
 		@SuppressWarnings("unchecked")

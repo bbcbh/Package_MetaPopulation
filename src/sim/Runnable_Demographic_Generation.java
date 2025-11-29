@@ -91,15 +91,26 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 		// Key = POP_ID
 		HashMap<Integer, HashMap<String, Object>> node_info = loc_map.getNode_info();
-		// Key = POP_ID, Value = Map(Grp, ArrayList<> pids)
-		HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> map_group_member_by_pop = new HashMap<>();
-		// Key = POPSRC_POPTAR
-		HashMap<String, StringBuilder> map_movement_strBuilder = new HashMap<>();
 
+		// Key = POP_ID, Value = Map(Grp, ArrayList<> pids)
+		HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> map_group_member_by_pop;
+		// Key = POPSRC_POPTAR
+		HashMap<String, StringBuilder> map_movement_strBuilder;
+		// Key = PID
+		HashMap<Integer, int[]> map_indiv;
+
+		// TODO: Possible code for importation
+
+		// Key = POP_ID, Value = Map(Grp, ArrayList<> pids)
+		map_group_member_by_pop = new HashMap<>();
+		// Key = POPSRC_POPTAR
+		map_movement_strBuilder = new HashMap<>();
+		// Key = PID
+		map_indiv = new HashMap<>();
+
+		// Helper object not by importation
 		// Key = Time, Value = ArrayList(pids)
 		HashMap<Integer, ArrayList<Integer>> map_indivdual_return = new HashMap<>();
-		// Key = PID
-		HashMap<Integer, int[]> map_indiv = new HashMap<>();
 		// Key = Group
 		HashMap<Integer, int[]> map_group_age_range = new HashMap<>();
 
@@ -398,7 +409,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 
 				});
 
-				File resultBackup = new File(baseDir, "RESULT_BACKUP");
+				File resultBackup = new File(baseDir, "RESULT_BACKUP_DEMOGRAHPIC");
 				resultBackup.mkdirs();
 				File[] backup_to_be_remove = resultBackup.listFiles();
 
@@ -445,15 +456,17 @@ public class Runnable_Demographic_Generation implements Runnable {
 				}
 
 				for (File rembackup : backup_to_be_remove) {
-					try {
-						Files.delete(rembackup.toPath());
-					} catch (IOException e) {
-						e.printStackTrace(System.err);
+					if (rembackup.exists()) {
+						try {
+							Files.delete(rembackup.toPath());
+						} catch (IOException e) {
+							e.printStackTrace(System.err);
+						}
 					}
 				}
 
 				System.out.printf(
-						"Demographic / Mobility generation for mapSeed=%d up to t=%d. Time required = %.3fs\n", mapSeed,
+						"Demographic / Mobility generation for mapSeed=%d up to t=%d. Time elapsed = %.3fs\n", mapSeed,
 						currentTime, (System.currentTimeMillis() - tic) / 1000.0);
 
 			}
