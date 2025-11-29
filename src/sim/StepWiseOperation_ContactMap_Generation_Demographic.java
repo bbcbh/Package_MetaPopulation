@@ -74,15 +74,14 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	private int[][] mat_age_range;
 
 	private double[][] partnership_by_snap;
-	private static final int PARTNERSHIP_REG_DUR_GRP_NUM = 0;
-	private static final int PARTNERSHIP_REG_DUR_MEAN = PARTNERSHIP_REG_DUR_GRP_NUM+1;
+	private static final int PARTNERSHIP_REG_DUR_MEAN = 0;
 	private static final int PARTNERSHIP_REG_DUR_SD = PARTNERSHIP_REG_DUR_MEAN + 1;
 	private static final int PARTNERSHIP_PROB_START = PARTNERSHIP_REG_DUR_SD + 1;
 
 	private double[][] mat_mixing;
 	private static final int MIXING_GRP_NUM = 0;
 	private static final int MIXING_PROB_REG = MIXING_GRP_NUM + 1;
-	private static final int MIXING_PROB_START = MIXING_PROB_REG + 1;
+	private static final int MIXING_PROB_START = MIXING_PROB_REG + 1; // Use group_incl format if < 0
 
 	private AbstractRealDistribution[] rel_duration_dist;
 
@@ -205,7 +204,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 					/ row_sel[PARTNERSHIP_REG_DUR_MEAN];
 			// shape = mean / scale i.e. mean / (var / mean)
 			double shape = row_sel[PARTNERSHIP_REG_DUR_MEAN] / scale;
-			rel_duration_dist[(int) row_sel[PARTNERSHIP_REG_DUR_GRP_NUM]] = new GammaDistribution(RNG, shape, scale);
+			rel_duration_dist[g] = new GammaDistribution(RNG, shape, scale);
 		}
 
 		// POP_PROP_INIT_PREFIX_5
@@ -302,20 +301,66 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 			}
 
 			for (int seekerPid : seekerPids) {
-				double p = RNG.nextDouble();
-				int pt = Arrays.binarySearch(mixing, MIXING_PROB_START, mixing.length, p);
-				if (pt < 0) {
-					pt = ~pt;
+
+				int grp_sought;
+				if (mixing[MIXING_PROB_START] < 0) {
+					// Format for mixing:
+					// [age_grp_num_seek, prob_reg, -num_grp_incl, age_grp_incl_sought_0, ...
+					// age_grp_incl_sought_prob_cumul_0...]
+					
+					int num_grp_incl = -(int) mixing[MIXING_PROB_START];
+					int mix_prob_start_grp_incl = MIXING_PROB_START + num_grp_incl + 1;
+
+					double p = RNG.nextDouble();
+					int pt;
+					pt = Arrays.binarySearch(mixing, mix_prob_start_grp_incl, mixing.length, p);
+					if (pt < 0) {
+						pt = ~pt;
+					}
+
+					long grp_inc = (long) mixing[pt - num_grp_incl];
+					if (grp_inc >= Long.MAX_VALUE) {
+						System.err.printf("Warning! grp_inc = %d is greater than maximum value Long can handle."
+								+ "Suggest direct reference to grp instead. \n", mixing[pt - num_grp_incl]);
+						System.exit(1);
+					}
+					
+					// TODO: To be implemented
+					ArrayList<Integer> grp_inc_list = new ArrayList<>();
+					ArrayList<Integer> grp_inc_count = new ArrayList<>();
+					int cumul_count = 0;
+					for(int g = 0; g < map_available_by_grp.size(); g++) {
+						if((grp_inc & 1 << g) != 0) {
+							grp_inc_list.add(g);							
+							cumul_count += map_available_by_grp.get(g).size();
+							grp_inc_count.add(cumul_count);
+						}
+					}
+					
+					pt = Collections.binarySearch(grp_inc_count, RNG.nextInt(cumul_count));
+					if (pt < 0) {
+						pt = ~pt;
+					}					
+					grp_sought = grp_inc_list.get(pt);
+					
+				} else {
+					// Format for mixing:
+					// [age_grp_num_seek, prob_reg, grpNum_sought_prob_cumul_0,...]
+
+					double p = RNG.nextDouble();
+					grp_sought = Arrays.binarySearch(mixing, MIXING_PROB_START, mixing.length, p);
+					if (grp_sought < 0) {
+						grp_sought = ~grp_sought;
+					}
+					grp_sought -= MIXING_PROB_START;
 				}
-				pt -= MIXING_PROB_START;
-				if (map_available_by_grp.get(pt) != null && map_available_by_grp.get(pt).size() > 0) {
-					int soughtPid = map_available_by_grp.get(pt)
-							.remove(RNG.nextInt(map_available_by_grp.get(pt).size()));
+				if (map_available_by_grp.get(grp_sought) != null && map_available_by_grp.get(grp_sought).size() > 0) {
+					int soughtPid = map_available_by_grp.get(grp_sought)
+							.remove(RNG.nextInt(map_available_by_grp.get(grp_sought).size()));
 					map_available_by_grp.get(grpNum)
 							.remove(Collections.binarySearch(map_available_by_grp.get(grpNum), seekerPid));
 
 					int dur = 1;
-
 					int[] seek_stat = map_indiv.get(seekerPid);
 					int[] sought_stat = map_indiv.get(soughtPid);
 
@@ -327,13 +372,14 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 							&& currentTime >= seek_stat[INDEX_MAP_INDIV_IN_REG_PARTNERSHIP_UTIL]
 							&& currentTime >= sought_stat[INDEX_MAP_INDIV_IN_REG_PARTNERSHIP_UTIL]) {
 						if (RNG.nextDouble() < mixing[MIXING_PROB_REG]) {
-							dur = Math.max(dur, (int) Math.round(rel_duration_dist[pt].sample()));
+							dur = Math.max(dur, (int) Math.round(rel_duration_dist[grp_sought].sample()));
 							seek_stat[INDEX_MAP_INDIV_IN_REG_PARTNERSHIP_UTIL] = currentTime + dur;
 							sought_stat[INDEX_MAP_INDIV_IN_REG_PARTNERSHIP_UTIL] = currentTime + dur;
 						}
 					}
 					pairing.add(new int[] { seekerPid, soughtPid, currentTime, dur });
 				}
+
 			}
 		}
 		// Store pairing
@@ -402,7 +448,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		}
 	}
 
-	private void updatePartnerSeekingActivity(int pid, int[] indiv_ent) {		
+	private void updatePartnerSeekingActivity(int pid, int[] indiv_ent) {
 		if (indiv_ent[INDEX_MAP_INDIV_NUM_PARTNERS_TO_SEEK] > 0) {
 			// "TIME_FROM,PID,EXTRA_PARTNER_SOUGHT"
 			extraPartner_record.add(new int[] { Math.max(currentTime - AbstractIndividualInterface.ONE_YEAR_INT, 0),
