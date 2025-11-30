@@ -7,7 +7,9 @@ public class Simulation_Gen_MetaPop extends Simulation_ClusterModelTransmission 
 	public static final String PROP_PRELOAD_FILES = "PROP_PRELOAD_FILES";
 	public static final String PROP_INDIV_STAT = "PROP_INDIV_STAT";
 	public static final String PROP_PARNTER_EXTRA_SOUGHT = "PROP_PARNTER_EXTRA_SOUGHT";
-	public static final String PROP_CONTACT_MAP_LOC = "PROP_CONTACT_MAP_LOC";
+	public static final String PROP_CONTACT_MAP_LOC = "PROP_CONTACT_MAP_LOC";	
+	
+	public static final String DIR_NAME_FORMAT_DEMOGRAPHIC = "Demographic_%d";
 	
 //	public static void test_main(String[] args) throws IOException, InterruptedException {
 //		final String USAGE_INFO = String.format(

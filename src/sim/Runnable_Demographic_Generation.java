@@ -414,12 +414,17 @@ public class Runnable_Demographic_Generation implements Runnable {
 				File[] backup_to_be_remove = resultBackup.listFiles();
 
 				File tarFile;
+				
+				File demogrpahic_dir = new File(baseDir, 
+						String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));				
+				demogrpahic_dir.mkdirs();								
+				
 				for (Entry<Integer, int[]> ent : ent_arr) {
 					int homeLoc = ent.getValue()[INDEX_MAP_INDIV_ENTER_LOC];
 					try {
 						PrintWriter pWri = demo_priWri.get(homeLoc);
 						if (pWri == null) {
-							tarFile = new File(baseDir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed));
+							tarFile = new File(demogrpahic_dir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed));
 
 							if (tarFile.exists()) {
 								Files.copy(tarFile.toPath(),
@@ -445,7 +450,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 				// Print movement CSV
 				for (Entry<String, StringBuilder> ent : map_movement_strBuilder.entrySet()) {
 					try {
-						tarFile = new File(baseDir, String.format(FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed));
+						tarFile = new File(demogrpahic_dir, String.format(FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed));
 						PrintWriter pWri = new PrintWriter(tarFile);
 						pWri.println(FILE_HEADER_MOVEMENT);
 						pWri.print(ent.getValue().toString());

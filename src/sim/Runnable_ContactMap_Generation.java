@@ -50,6 +50,36 @@ public class Runnable_ContactMap_Generation implements Runnable {
 		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_INDIV_STAT, new HashMap<Integer, int[]>());
 		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT, new ArrayList<int[]>());
 
+		// Move demographic file to associated folder (for backward compatibility)
+
+		File baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+		File demogrpahic_dir = new File(baseDir,
+				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+		if (!demogrpahic_dir.exists()) {
+			demogrpahic_dir.mkdirs();
+		}
+		File[] demographic_files = baseDir.listFiles(new FileFilter() {
+			@Override
+			public boolean accept(File pathname) {
+				return pathname.getName().endsWith(String.format("%d.csv", mapSeed));
+			}
+		});
+
+		if (demographic_files.length != 0) {
+			int counter = 0;
+			for (File mv_file : demographic_files) {
+				try {
+					Files.move(mv_file.toPath(), new File(demogrpahic_dir, mv_file.getName()).toPath(),
+							StandardCopyOption.ATOMIC_MOVE);
+					counter++;
+				} catch (IOException e) {
+					e.printStackTrace(System.err);
+				}
+			}
+			System.out.printf("%d out of %d demographic files for cMap_seed=%d moved successfully.\n", counter,
+					demographic_files.length, mapSeed);
+		}
+
 	}
 
 	protected HashMap<String, Object> getLoadedProperties() {
@@ -97,9 +127,9 @@ public class Runnable_ContactMap_Generation implements Runnable {
 			if (currentTime % AbstractIndividualInterface.ONE_YEAR_INT == 0) {
 				for (int i = 0; i < pop_ids.length; i++) {
 					steps[i].printContactMap(currentTime);
-				}								
-				System.out.printf("Contact map generation for cMap=%d up to t=%d. Time elapsed = %.3fs\n", 
-						mapSeed, currentTime,	(System.currentTimeMillis() - tic) / 1000.0);
+				}
+				System.out.printf("Contact map generation for cMap=%d up to t=%d. Time elapsed = %.3fs\n", mapSeed,
+						currentTime, (System.currentTimeMillis() - tic) / 1000.0);
 			}
 			currentTime++;
 
@@ -123,16 +153,20 @@ public class Runnable_ContactMap_Generation implements Runnable {
 				}
 			});
 			File baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+			File demogrpahic_dir = new File(baseDir,
+					String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+			demogrpahic_dir.mkdirs();
+
 			try {
 				PrintWriter pWri = new PrintWriter(
-						new File(baseDir, String.format(FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, mapSeed)));
+						new File(demogrpahic_dir, String.format(FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, mapSeed)));
 				pWri.println(FILE_HEADER_EXTRA_PARTNER_SOUGHT);
 				for (int[] extra : extraPartner_record) {
 					pWri.printf("%d,%d,%d\n", extra[0], extra[1], extra[2]);
 				}
 				pWri.close();
 
-				covertDemographicFiles(baseDir, baseDir, mapSeed);
+				covertDemographicFiles(demogrpahic_dir, demogrpahic_dir, mapSeed);
 			} catch (IOException ex) {
 				ex.printStackTrace(System.err);
 			}

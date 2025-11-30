@@ -72,6 +72,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	private File baseDir;
 	private RandomGenerator RNG;
 	private int[][] mat_age_range;
+	private int max_age_range = 0;
 
 	private double[][] partnership_by_snap;
 	private static final int PARTNERSHIP_REG_DUR_MEAN = 0;
@@ -136,15 +137,18 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		pattern_filename_movement = Pattern.compile(
 				String.format(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT, "(\\d+)_(\\d+)", mapSeed));
 
+		File demogrpahic_dir = new File(baseDir,
+				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+
 		// Load line collections
 		lines_demographic = null;
 		lines_outflow = new ArrayList<>();
 		lines_inflow = new ArrayList<>();
 
-		File file_res = new File(baseDir,
+		File file_res = new File(demogrpahic_dir,
 				String.format(Runnable_Demographic_Generation.FILENAME_FORMAT_DEMOGRAPHIC, popId, mapSeed));
 
-		File[] flow_files = baseDir.listFiles(new FileFilter() {
+		File[] flow_files = demogrpahic_dir.listFiles(new FileFilter() {
 			@Override
 			public boolean accept(File pathname) {
 				Matcher m = pattern_filename_movement.matcher(pathname.getName());
@@ -185,6 +189,9 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 				.get(String.format("%s%d", Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
 						RUNNABLE_FIELD_CONTACT_MAP_GEN_MULTIMAP_AGE_DIST)),
 				int[][].class);
+		for (int[] age_range : mat_age_range) {
+			max_age_range = Math.max(max_age_range, age_range[age_range.length - 1]);
+		}
 
 		// POP_PROP_INIT_PREFIX_4
 		partnership_by_snap = (double[][]) util.PropValUtils
@@ -239,8 +246,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 			ArrayList<Integer> grpPids = map_in_population_by_grp.get(grpId);
 			for (Integer pid : grpPids.toArray(new Integer[0])) {
 				int[] indiv_ent = map_indiv.get(pid);
-				if (currentTime >= indiv_ent[INDEX_MAP_INDIV_EXIT_AT]
-						&& indiv_ent[INDEX_MAP_INDIV_EXIT_AT] >= 0 ) {
+				if (currentTime >= indiv_ent[INDEX_MAP_INDIV_EXIT_AT] && indiv_ent[INDEX_MAP_INDIV_EXIT_AT] >= 0) {
 					grpPids.remove(Collections.binarySearch(grpPids, pid));
 				} else {
 					int[] age_range = lookup_group_age_range.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
@@ -260,12 +266,18 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 							- indiv_ent[INDEX_MAP_INDIV_ENTER_AT];
 					if (age >= age_range[1]) {
 						grpPids.remove(Collections.binarySearch(grpPids, pid));
-						indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] += 1; // Next age group
-						indiv_ent[INDEX_MAP_INDIV_CURRENT_ACTIVITY_POINT] = 0;// Force reset
-						ArrayList<Integer> grpPids_add = map_in_population_by_grp
-								.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
-						updatePartnerSeekingActivity(pid, indiv_ent);
-						grpPids_add.add(~Collections.binarySearch(grpPids_add, pid), pid);
+						if (age < max_age_range) {
+							indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP] += 1; // Next age group
+							indiv_ent[INDEX_MAP_INDIV_CURRENT_ACTIVITY_POINT] = 0;// Force reset
+							ArrayList<Integer> grpPids_add = map_in_population_by_grp
+									.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
+							updatePartnerSeekingActivity(pid, indiv_ent);
+							grpPids_add.add(~Collections.binarySearch(grpPids_add, pid), pid);
+						} else {
+							System.err.printf("Warning! Age of for loc=%d:pid=%d excced MAX_AGE=at t=%d\n", popId, pid,
+									max_age_range, currentTime);
+
+						}
 
 					}
 				}
@@ -407,19 +419,21 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 					int pid = Integer.parseInt(str_ent[1]);
 					int[] indiv_ent = map_indiv.get(pid);
 					ArrayList<Integer> grpPids = map_in_population_by_grp.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
-					
+
 					int pt = Collections.binarySearch(grpPids, pid);
 					if (flow_arr == lines_outflow) {
-						if(pt >= 0) {
+						if (pt >= 0) {
 							grpPids.remove(pt);
-						}else {
-							System.err.printf("Warning! Outflow for loc=%d:pid=%d not found at t=%d\n", popId, pid, currentTime);
+						} else {
+							System.err.printf("Warning! Outflow for loc=%d:pid=%d not found at t=%d\n", popId, pid,
+									currentTime);
 						}
-					} else {						
-						if(pt < 0) {
+					} else {
+						if (pt < 0) {
 							grpPids.add(~pt, pid);
-						}else {
-							System.err.printf("Warning! Inflow for loc=%d:pid=%d not found at t=%d\n", popId, pid, currentTime);
+						} else {
+							System.err.printf("Warning! Inflow for loc=%d:pid=%d not found at t=%d\n", popId, pid,
+									currentTime);
 						}
 					}
 				}
@@ -525,7 +539,11 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 
 	public void printContactMap(int currentTime) {
 		// Write contact map
-		File cMapFile = new File(baseDir,
+
+		File demogrpahic_dir = new File(baseDir,
+				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+
+		File cMapFile = new File(demogrpahic_dir,
 				String.format(Runnable_ContactMap_Generation.FILENAME_FORMAT_CMAP_BY_POP, popId, mapSeed));
 		try {
 			File[] backup_to_be_remove = new File[0];
