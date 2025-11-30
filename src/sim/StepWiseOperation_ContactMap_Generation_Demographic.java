@@ -240,8 +240,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 			for (Integer pid : grpPids.toArray(new Integer[0])) {
 				int[] indiv_ent = map_indiv.get(pid);
 				if (currentTime >= indiv_ent[INDEX_MAP_INDIV_EXIT_AT]
-				// && indiv_ent[INDEX_MAP_INDIV_EXIT_AT] > 0
-				) {
+						&& indiv_ent[INDEX_MAP_INDIV_EXIT_AT] >= 0 ) {
 					grpPids.remove(Collections.binarySearch(grpPids, pid));
 				} else {
 					int[] age_range = lookup_group_age_range.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
@@ -408,10 +407,20 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 					int pid = Integer.parseInt(str_ent[1]);
 					int[] indiv_ent = map_indiv.get(pid);
 					ArrayList<Integer> grpPids = map_in_population_by_grp.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
+					
+					int pt = Collections.binarySearch(grpPids, pid);
 					if (flow_arr == lines_outflow) {
-						grpPids.remove(Collections.binarySearch(grpPids, pid));
-					} else {
-						grpPids.add(~Collections.binarySearch(grpPids, pid), pid);
+						if(pt >= 0) {
+							grpPids.remove(pt);
+						}else {
+							System.err.printf("Warning! Outflow for loc=%d:pid=%d not found at t=%d\n", popId, pid, currentTime);
+						}
+					} else {						
+						if(pt < 0) {
+							grpPids.add(~pt, pid);
+						}else {
+							System.err.printf("Warning! Inflow for loc=%d:pid=%d not found at t=%d\n", popId, pid, currentTime);
+						}
 					}
 				}
 				ent.loadNextLine();
