@@ -239,7 +239,9 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 			ArrayList<Integer> grpPids = map_in_population_by_grp.get(grpId);
 			for (Integer pid : grpPids.toArray(new Integer[0])) {
 				int[] indiv_ent = map_indiv.get(pid);
-				if (currentTime >= indiv_ent[INDEX_MAP_INDIV_EXIT_AT] && indiv_ent[INDEX_MAP_INDIV_EXIT_AT] > 0) {
+				if (currentTime >= indiv_ent[INDEX_MAP_INDIV_EXIT_AT]
+				// && indiv_ent[INDEX_MAP_INDIV_EXIT_AT] > 0
+				) {
 					grpPids.remove(Collections.binarySearch(grpPids, pid));
 				} else {
 					int[] age_range = lookup_group_age_range.get(indiv_ent[INDEX_MAP_INDIV_CURRENT_GRP]);
@@ -328,7 +330,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 					ArrayList<Integer> grp_inc_count = new ArrayList<>();
 					int cumul_count = 0;
 					for (int g = 0; g < map_available_by_grp.size(); g++) {
-						if ((grp_inc & (1 << g)) != 0) {							
+						if ((grp_inc & (1 << g)) != 0) {
 							if (map_available_by_grp.get(g) != null) {
 								grp_inc_list.add(g);
 								cumul_count += map_available_by_grp.get(g).size();

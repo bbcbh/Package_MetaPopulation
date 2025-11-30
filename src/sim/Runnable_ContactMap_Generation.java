@@ -122,7 +122,7 @@ public class Runnable_ContactMap_Generation implements Runnable {
 					return res;
 				}
 			});
-			File baseDir = (File) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR);
+			File baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
 			try {
 				PrintWriter pWri = new PrintWriter(
 						new File(baseDir, String.format(FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, mapSeed)));
