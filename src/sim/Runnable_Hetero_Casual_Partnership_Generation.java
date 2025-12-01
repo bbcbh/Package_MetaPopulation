@@ -32,14 +32,13 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 	private RandomGenerator RNG;
 	private int NUM_AGE_GRP; // So Grp number / NUM_AGE_GRP is gender
 
-	public Runnable_Hetero_Casual_Partnership_Generation(long mapSeed,
-			HashMap<String, Object> loadedProperties) {
+	public Runnable_Hetero_Casual_Partnership_Generation(long mapSeed, HashMap<String, Object> loadedProperties) {
 		this.mapSeed = mapSeed;
 		this.loadedProperties = loadedProperties;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		// Format: POP_ID,Name,M0,M1... F0,F1...
 		this.NUM_AGE_GRP = (((Map_Location_Mobility) loadedProperties.get(Simulation_Gen_MetaPop.PROP_LOC_MAP))
-				.getNodeInfo_header().split(",").length - 2)/2;
+				.getNodeInfo_header().split(",").length - 2) / 2;
 
 	}
 
@@ -54,30 +53,36 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 	public void run() {
 
 		long tic = System.currentTimeMillis();
-		File baseDir = (File) getLoadedProperties().get(Simulation_Gen_MetaPop.PROP_BASEDIR);
+		File baseDir = new File((String) getLoadedProperties().get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+
+		File demogrpahic_dir = new File(baseDir,
+				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
 
 		// Load demographic file
-		loadCollection(baseDir,
+		loadCollection(demogrpahic_dir,
 				Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_DEMOGRAPHIC
 						.replaceFirst("%d", "(\\\\d+)").replaceFirst("%d", Long.toString(getMapSeed()))),
 				demogrpahicCollections);
 
 		// Load movement file
-		loadCollection(baseDir,
+		loadCollection(demogrpahic_dir,
 				Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
 						.replaceFirst("%s", "(\\\\d+_\\\\d+)").replaceAll("%d", Long.toString(getMapSeed()))),
 				movementCollections);
 		// Load extra partners
-		loadCollection(baseDir,
-				Pattern.compile(String.format(
-						Runnable_ContactMap_Generation.FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, getMapSeed())),
+		loadCollection(
+				demogrpahic_dir, Pattern.compile(String
+						.format(Runnable_ContactMap_Generation.FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, getMapSeed())),
 				extraPartnerCollections);
 
 		int currentTime = 0;
-		int max_time = Integer.parseInt((String)
-				getLoadedProperties().get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
+		int max_time = Integer.parseInt(
+				(String) getLoadedProperties().get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
 				* Integer.parseInt((String) getLoadedProperties()
 						.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
+		
+		// Extra year round up
+		max_time = (max_time / AbstractIndividualInterface.ONE_YEAR_INT + 1)  * AbstractIndividualInterface.ONE_YEAR_INT + 1;
 
 		// Key = PID, Val = See Runnable_MetaPopulation_Transmission_RMP_MultiInfection.
 		HashMap<Integer, int[]> indiv_map = new HashMap<>();
@@ -190,7 +195,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 		// Extra partners sought
 		PrintWriter pWri;
 		try {
-			pWri = new PrintWriter(new File(baseDir, String
+			pWri = new PrintWriter(new File(demogrpahic_dir, String
 					.format(Runnable_ClusterModel_ContactMap_Generation_MultiMap.MAPFILE_FORMAT, 0, getMapSeed())));
 
 			for (int[] extra_p : extra_partnership_formed) {
@@ -235,8 +240,8 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 						seek_extra_by_gender_loc.put(gender, seek_extra_by_loc);
 					}
 
-					int curLoc = indiv_map
-							.get(pid)[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_LOC];
+					int curLoc = indiv_map.get(
+							pid)[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_LOC];
 					ArrayList<Integer> seek_extra_pids = seek_extra_by_loc.get(curLoc);
 					if (seek_extra_pids == null) {
 						seek_extra_pids = new ArrayList<>();

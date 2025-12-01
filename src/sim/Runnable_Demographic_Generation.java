@@ -235,6 +235,10 @@ public class Runnable_Demographic_Generation implements Runnable {
 				}
 			}
 		}
+		
+		// Extra year round up
+		max_time = (max_time / AbstractIndividualInterface.ONE_YEAR_INT + 1)  * AbstractIndividualInterface.ONE_YEAR_INT + 1;
+		
 		// Time step
 		while (currentTime < max_time) {
 			// Aging

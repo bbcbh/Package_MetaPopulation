@@ -274,8 +274,8 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 							updatePartnerSeekingActivity(pid, indiv_ent);
 							grpPids_add.add(~Collections.binarySearch(grpPids_add, pid), pid);
 						} else {
-							System.err.printf("Warning! Age of for loc=%d:pid=%d excced MAX_AGE=at t=%d\n", popId, pid,
-									max_age_range, currentTime);
+							System.err.printf("Warning! Age of for loc=%d:pid=%d excced MAX_AGE=%d at t=%d\n", 
+									popId, pid,	max_age_range, currentTime);
 
 						}
 
@@ -452,7 +452,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 			if (Integer.parseInt(str_ent[INDEX_MAP_INDIV_ENTER_AT + 1]) > currentTime) {
 				break;
 			} else {
-				int pid = Integer.parseInt(str_ent[0]);
+				int pid = Integer.parseInt(str_ent[0]);	
 				int[] indiv_ent = map_indiv.get(pid);
 				if (indiv_ent == null) {
 					indiv_ent = new int[LENGTH_INDEX_MAP_INDIV];

@@ -113,6 +113,9 @@ public class Runnable_ContactMap_Generation implements Runnable {
 				* Integer.parseInt((String) loadedProperties
 						.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
 
+		// Extra year round up
+		max_time = (max_time / AbstractIndividualInterface.ONE_YEAR_INT + 1)  * AbstractIndividualInterface.ONE_YEAR_INT + 1;
+		
 		while (currentTime < max_time) {
 			for (int i = 0; i < pop_ids.length; i++) {
 				steps[i].updateDemogrpahic();
