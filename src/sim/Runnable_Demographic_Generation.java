@@ -483,6 +483,21 @@ public class Runnable_Demographic_Generation implements Runnable {
 			currentTime++;
 
 		}
+		
+		// Remove backup		
+		File resultBackup = new File(baseDir, "RESULT_BACKUP_DEMOGRAHPIC");
+		resultBackup.mkdirs();
+		File[] backup_to_be_remove = resultBackup.listFiles();
+		
+		for (File rembackup : backup_to_be_remove) {
+			if (rembackup.exists()) {
+				try {
+					Files.delete(rembackup.toPath());
+				} catch (IOException e) {
+					e.printStackTrace(System.err);
+				}
+			}
+		}
 
 		System.out.printf("Demographic / Mobility generation for mapSeed=%d completed. Time required = %.3fs\n",
 				mapSeed, (System.currentTimeMillis() - tic) / 1000.0);

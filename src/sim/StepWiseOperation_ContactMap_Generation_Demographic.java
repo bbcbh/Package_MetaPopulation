@@ -535,6 +535,27 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 			}
 		}
 		printContactMap(currentTime);
+		
+		
+		File resultBackup = new File(baseDir, "RESULT_BACKUP_CONTACT_MAP");
+		File[] backup_to_be_remove = resultBackup.listFiles(new FileFilter() {
+			@Override
+			public boolean accept(File pathname) {
+				return pathname.getName().endsWith(String.format("%d.csv", mapSeed));
+			}
+		});
+		
+		for (File rembackup : backup_to_be_remove) {
+			if (rembackup.exists()) {
+				try {
+					Files.delete(rembackup.toPath());
+				} catch (IOException e) {
+					e.printStackTrace(System.err);
+				}
+			}
+		}
+
+		
 	}
 
 	public void printContactMap(int currentTime) {
