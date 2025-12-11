@@ -36,12 +36,10 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 	protected int[][] grp_age_range = null;
 	protected HashMap<Integer, ArrayList<Integer>> current_pids_by_grp = new HashMap<>();
 	protected HashMap<Integer, ArrayList<int[]>> schdule_grp_change = new HashMap<>();
-	
-	
+
 	protected static final int SCH_GRP_PID = 0;
 	protected static final int SCH_GRP_FROM = SCH_GRP_PID + 1;
 	protected static final int SCH_GRP_TO = SCH_GRP_FROM + 1;
-	
 
 	// Infection history
 	protected HashMap<Integer, ArrayList<ArrayList<Integer>>> infection_history = new HashMap<>();
@@ -49,7 +47,6 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 	public static final int INFECTION_HIST_CLEAR_TREATMENT = -2;
 	public static final int INFECTION_HIST_OVERTREATMENT = -3;
 
-	
 	// Individual movement
 	protected String[] location_name; // Pop_ID, Pop_Index
 	// Key = LocationFrom_LocationTo
@@ -61,10 +58,10 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 	// Others
 	protected static final String key_pop_size = "EXPORT_POP_SIZE";
 	protected static final String FILENAME_EXPORT_POP_SIZE = "Pop_size_%d_%d.csv";
+	protected static final int NUM_INF_RMP_POC = 4;
 
 	protected final File dir_demographic;
-	
-	
+
 	// Private fields
 	private boolean preloadMovementFile = false;
 	private final Comparator<int[]> comparator_grp_change = new Comparator<int[]>() {
@@ -77,7 +74,6 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 			return res;
 		}
 	};
-	
 
 	public Runnable_MetaPopulation_MultiTransmission(long cMap_seed, long sim_seed, Properties prop, int NUM_INF,
 			int NUM_SITE, int NUM_ACT) {
@@ -136,16 +132,14 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 		init_indiv_map();
 
 	}
-	
-	
+
 	@Override
 	protected int initaliseCMap(ContactMap cMap, Integer[][] edges_array, int edges_array_pt, int startTime,
 			HashMap<Integer, ArrayList<Integer[]>> removeEdges) {
-		int res = super.initaliseCMap(cMap, edges_array, edges_array_pt, startTime, removeEdges);		
+		int res = super.initaliseCMap(cMap, edges_array, edges_array_pt, startTime, removeEdges);
 		loadMovement(startTime);
 		return res;
-	}	
-	
+	}
 
 	@Override
 	public void setPop_stat(HashMap<Integer, String[]> pop_stat_src) {
@@ -342,6 +336,89 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 			return super.getTransmissionProb(currentTime, inf_id, pid_inf_src, pid_inf_tar, partnershiptDur, actType,
 					src_site, tar_site);
 		}
+	}
+
+	@Override
+	protected void applyTreatment(int currentTime, int infId, int pid, int[][] inf_stage) {
+	
+		int[] preTreatment_stage = Arrays.copyOf(inf_stage[infId], inf_stage[infId].length);
+	
+		super.applyTreatment(currentTime, infId, pid, inf_stage);
+	
+		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
+			ArrayList<Integer> infHist = infection_history.get(pid).get(infId);
+	
+			boolean nonInfected = true;
+			boolean treatment_suc = false;
+	
+			for (int i = 0; i < preTreatment_stage.length; i++) {
+				nonInfected &= preTreatment_stage[i] == AbstractIndividualInterface.INFECT_S;
+				treatment_suc |= preTreatment_stage[i] >= 0 && preTreatment_stage[i] != inf_stage[infId][i];
+			}
+			if (nonInfected) {
+				infHist.add(currentTime);
+				infHist.add(currentTime);
+				infHist.add(INFECTION_HIST_OVERTREATMENT);
+			} else if (treatment_suc) {
+				if (infHist.get(infHist.size() - 1) > 0) {
+					infHist.add(currentTime);
+					infHist.add(INFECTION_HIST_CLEAR_TREATMENT);
+				} else {
+					System.err.printf("Infection history error: %s -> %s.\n", Arrays.toString(preTreatment_stage),
+							Arrays.toString(inf_stage[infId]));
+	
+				}
+			}
+		}
+	
+	}
+
+	@Override
+	public int addInfectious(Integer infectedPId, int infectionId, int site_id, int stage_id, int infectious_time, int state_duration_adj) {
+		int res = super.addInfectious(infectedPId, infectionId, site_id, stage_id, infectious_time, state_duration_adj);
+	
+		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
+			ArrayList<ArrayList<Integer>> hist_all = infection_history.get(infectedPId);
+			if (hist_all == null) {
+				hist_all = new ArrayList<>();
+				for (int i = 0; i < NUM_INF; i++) {
+					hist_all.add(new ArrayList<>());
+				}
+				infection_history.put(infectedPId, hist_all);
+			}
+			ArrayList<Integer> hist_by_inf = hist_all.get(infectionId);
+			// Check for new infection (i.e. previously recovered naturally or through
+			// treatment
+			if (hist_by_inf.size() == 0 || hist_by_inf.get(hist_by_inf.size() - 1) < 0) {
+				hist_by_inf.add(infectious_time);
+			}
+		}
+		return res;
+	}
+
+	@Override
+	protected int[] handleNoNextStage(Integer pid, int infection_id, int site_id, int current_infection_stage, int current_time) {
+		int[] res = super.handleNoNextStage(pid, infection_id, site_id, current_infection_stage, current_time);
+		// res = {next_stage, duration}
+		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
+			ArrayList<Integer> infhist = infection_history.get(pid).get(infection_id);
+			if (infhist.size() > 0 && infhist.get(infhist.size() - 1) > 0) {
+				// Key=PID,V=int[INF_ID][SITE]{infection_stage}
+				int[] inf_stat = map_currrent_infection_stage.get(pid)[infection_id];
+				boolean all_clear = true;
+				for (int s = 0; s < inf_stat.length; s++) {
+					all_clear &= (s == site_id ? res[0] : inf_stat[s]) == AbstractIndividualInterface.INFECT_S;
+				}
+				if (all_clear) {
+					ArrayList<Integer> infHist = infection_history.get(pid).get(infection_id);
+					infHist.add(current_time);
+					infHist.add(INFECTION_HIST_CLEAR_NATURAL_RECOVERY);
+				}
+			}
+	
+		}
+	
+		return res;
 	}
 
 }
