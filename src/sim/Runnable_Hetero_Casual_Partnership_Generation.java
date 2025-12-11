@@ -37,7 +37,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 		this.loadedProperties = loadedProperties;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		// Format: POP_ID,Name,M0,M1... F0,F1...
-		this.NUM_AGE_GRP = (((Map_Location_Mobility) loadedProperties.get(Simulation_Gen_MetaPop.PROP_LOC_MAP))
+		this.NUM_AGE_GRP = (((Map_Location_Mobility) loadedProperties.get(Simulation_MetaPopulation.PROP_LOC_MAP))
 				.getNodeInfo_header().split(",").length - 2) / 2;
 
 	}
@@ -53,26 +53,26 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 	public void run() {
 
 		long tic = System.currentTimeMillis();
-		File baseDir = new File((String) getLoadedProperties().get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+		File baseDir = new File((String) getLoadedProperties().get(Simulation_MetaPopulation.PROP_BASEDIR));
 
 		File demogrpahic_dir = new File(baseDir,
-				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+				String.format(Simulation_MetaPopulation.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
 
 		// Load demographic file
 		loadCollection(demogrpahic_dir,
-				Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_DEMOGRAPHIC
+				Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_DEMOGRAPHIC
 						.replaceFirst("%d", "(\\\\d+)").replaceFirst("%d", Long.toString(getMapSeed()))),
 				demogrpahicCollections);
 
 		// Load movement file
 		loadCollection(demogrpahic_dir,
-				Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
+				Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_MOVEMENT
 						.replaceFirst("%s", "(\\\\d+_\\\\d+)").replaceAll("%d", Long.toString(getMapSeed()))),
 				movementCollections);
 		// Load extra partners
 		loadCollection(
 				demogrpahic_dir, Pattern.compile(String
-						.format(Runnable_ContactMap_Generation.FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, getMapSeed())),
+						.format(Simulation_MetaPopulation.FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, getMapSeed())),
 				extraPartnerCollections);
 
 		int currentTime = 0;
@@ -104,12 +104,12 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 						int src_loc = Integer.parseInt(direction[0]);
 						int tar_loc = Integer.parseInt(direction[1]);
 
-						if (src_loc != indiv_stat[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_LOC]) {
+						if (src_loc != indiv_stat[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC]) {
 							System.err.printf("Warning! Movement mismatch\n");
 						}
 
-						indiv_stat[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_LOC] = tar_loc;
-						int gender = indiv_stat[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_ENTER_GRP]
+						indiv_stat[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC] = tar_loc;
+						int gender = indiv_stat[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
 								/ NUM_AGE_GRP;
 
 						int[] extra_stat = seek_extra_partners.get(pid);
@@ -144,11 +144,11 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 				int[] extra_sought_ent_seeker = seek_extra_partners.get(pid_seeker);
 				if (extra_sought_ent_seeker != null) {
 					int[] indiv_stat_seeker = indiv_map.get(pid_seeker);
-					int gender_seeker = indiv_stat_seeker[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_ENTER_GRP]
+					int gender_seeker = indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
 							/ NUM_AGE_GRP;
-					int common_loc = indiv_stat_seeker[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_LOC];
-					if (indiv_stat_seeker[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_EXIT_POP_AT] != -1
-							&& indiv_stat_seeker[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_EXIT_POP_AT] < currentTime) {
+					int common_loc = indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC];
+					if (indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_EXIT_POP_AT] != -1
+							&& indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_EXIT_POP_AT] < currentTime) {
 						// Remove expired
 						seek_extra_partners.remove(pid_seeker);
 						seek_extra_by_loc = seek_extra_by_gender_loc.get(gender_seeker);
@@ -170,7 +170,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 									seek_extra_partners.get(pid_r)[0]--;
 									if (seek_extra_partners.get(pid_r)[0] == 0) {
 										int gender_r = indiv_map.get(
-												pid_r)[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_ENTER_GRP]
+												pid_r)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
 												/ NUM_AGE_GRP;
 										seek_extra_partners.remove(pid_r);
 										seek_extra_by_loc = seek_extra_by_gender_loc.get(gender_r);
@@ -224,7 +224,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 			while (time_from <= currentTime) {
 				int pid = Integer.parseInt(ent_sp[1]);
 				int gender = indiv_map
-						.get(pid)[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_ENTER_GRP]
+						.get(pid)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
 						/ NUM_AGE_GRP;
 
 				int partner_sought = Integer.parseInt(ent_sp[2]);
@@ -241,7 +241,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 					}
 
 					int curLoc = indiv_map.get(
-							pid)[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_LOC];
+							pid)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC];
 					ArrayList<Integer> seek_extra_pids = seek_extra_by_loc.get(curLoc);
 					if (seek_extra_pids == null) {
 						seek_extra_pids = new ArrayList<>();
@@ -278,19 +278,19 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 					break;
 				}
 
-				int[] indiv_ent = new int[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.LENGTH_INDIV_MAP];
-				indiv_ent[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_ENTER_POP_AT] = enter_at;
-				indiv_ent[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_EXIT_POP_AT] = Integer
+				int[] indiv_ent = new int[Runnable_MetaPopulation_MultiTransmission.LENGTH_INDIV_MAP];
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_POP_AT] = enter_at;
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_EXIT_POP_AT] = Integer
 						.parseInt(str_ent[2]);
-				indiv_ent[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_ENTER_POP_AGE] = Integer
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_POP_AGE] = Integer
 						.parseInt(str_ent[3]);
-				indiv_ent[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_GRP] = Integer
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_GRP] = Integer
 						.parseInt(str_ent[4]);
 
-				indiv_ent[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_HOME_LOC] = home_loc;
-				indiv_ent[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_ENTER_GRP] = Integer
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_HOME_LOC] = home_loc;
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP] = Integer
 						.parseInt(str_ent[4]);
-				indiv_ent[Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INDIV_MAP_CURRENT_LOC] = home_loc;
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC] = home_loc;
 				indiv_map.put(pid, indiv_ent);
 
 				lines_demographic.loadNextLine();

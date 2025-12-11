@@ -24,19 +24,15 @@ public class Runnable_ContactMap_Generation implements Runnable {
 
 	private HashMap<String, Object> loadedProperties;
 	private Map_Location_Mobility loc_map;
-	private long mapSeed;
-	public static final String FILENAME_FORMAT_CMAP_BY_POP = "ContactMap_Pop_%d_%d.csv"; // POP_ID , SEED
+	private long mapSeed;	
+	
 	public static final String POP_TYPE = "MetaPop_By_Location_Mobility";
-
-	private static final String FILE_HEADER_EXTRA_PARTNER_SOUGHT = "TIME_FROM,PID,EXTRA_PARTNER_SOUGHT";
-	public static final String FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT = "Extra_partner_sought_%d.csv"; // SEED
-	public static final String FILENAME_FORMAT_POP_INDEX_MAP = "PopIndex_Mapping_%d.csv"; // SEED
-
+	
 	public Runnable_ContactMap_Generation(long mapSeed, HashMap<String, Object> loadedProperties) {
 		this.mapSeed = mapSeed;
 		this.loadedProperties = loadedProperties;
 		try {
-			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_Gen_MetaPop.PROP_LOC_MAP);
+			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_MetaPopulation.PROP_LOC_MAP);
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
@@ -47,14 +43,14 @@ public class Runnable_ContactMap_Generation implements Runnable {
 //		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT,
 //				Collections.synchronizedList(new ArrayList<int[]>()));
 
-		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_INDIV_STAT, new HashMap<Integer, int[]>());
-		this.loadedProperties.put(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT, new ArrayList<int[]>());
+		this.loadedProperties.put(Simulation_MetaPopulation.PROP_INDIV_STAT, new HashMap<Integer, int[]>());
+		this.loadedProperties.put(Simulation_MetaPopulation.PROP_PARNTER_EXTRA_SOUGHT, new ArrayList<int[]>());
 
 		// Move demographic file to associated folder (for backward compatibility)
 
-		File baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+		File baseDir = new File((String) loadedProperties.get(Simulation_MetaPopulation.PROP_BASEDIR));
 		File demogrpahic_dir = new File(baseDir,
-				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+				String.format(Simulation_MetaPopulation.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
 		if (!demogrpahic_dir.exists()) {
 			demogrpahic_dir.mkdirs();
 		}
@@ -143,7 +139,7 @@ public class Runnable_ContactMap_Generation implements Runnable {
 
 		@SuppressWarnings("unchecked")
 		List<int[]> extraPartner_record = (List<int[]>) loadedProperties
-				.get(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
+				.get(Simulation_MetaPopulation.PROP_PARNTER_EXTRA_SOUGHT);
 		if (extraPartner_record != null) {
 			extraPartner_record.sort(new Comparator<int[]>() {
 				@Override
@@ -155,15 +151,15 @@ public class Runnable_ContactMap_Generation implements Runnable {
 					return res;
 				}
 			});
-			File baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+			File baseDir = new File((String) loadedProperties.get(Simulation_MetaPopulation.PROP_BASEDIR));
 			File demogrpahic_dir = new File(baseDir,
-					String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+					String.format(Simulation_MetaPopulation.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
 			demogrpahic_dir.mkdirs();
 
 			try {
 				PrintWriter pWri = new PrintWriter(
-						new File(demogrpahic_dir, String.format(FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, mapSeed)));
-				pWri.println(FILE_HEADER_EXTRA_PARTNER_SOUGHT);
+						new File(demogrpahic_dir, String.format(Simulation_MetaPopulation.FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, mapSeed)));
+				pWri.println(Simulation_MetaPopulation.FILE_HEADER_EXTRA_PARTNER_SOUGHT);
 				for (int[] extra : extraPartner_record) {
 					pWri.printf("%d,%d,%d\n", extra[0], extra[1], extra[2]);
 				}
@@ -186,9 +182,9 @@ public class Runnable_ContactMap_Generation implements Runnable {
 		if (!tarDir.exists()) {
 			tarDir.mkdirs();
 		}
-		Pattern pattern_demographic = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_DEMOGRAPHIC
+		Pattern pattern_demographic = Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_DEMOGRAPHIC
 				.replaceFirst("%d", "(\\\\d+)").replaceFirst("%d", Long.toString(seed)));
-		Pattern pattern_cMap_by_pop = Pattern.compile(Runnable_ContactMap_Generation.FILENAME_FORMAT_CMAP_BY_POP
+		Pattern pattern_cMap_by_pop = Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_CMAP_BY_POP
 				.replaceFirst("%d", "(\\\\d+)").replaceFirst("%d", Long.toString(seed)));
 
 		HashMap<String, Integer> popIdToIndex = new HashMap<>();
@@ -216,7 +212,7 @@ public class Runnable_ContactMap_Generation implements Runnable {
 				String.format(Runnable_ClusterModel_ContactMap_Generation_MultiMap.POPSTAT_FORMAT, seed));
 		PrintWriter pWri = new PrintWriter(popStat);
 
-		pWri.println("ID,GRP,ENTER_POP_AGE,ENTER_POP_AT,EXIT_POP_AT,HOME_LOC");
+		pWri.println(Simulation_MetaPopulation.FILE_HEADER_POP_STAT);
 
 		for (File f : allDemographicFile) {
 			Matcher m = pattern_demographic.matcher(f.getName());
@@ -244,9 +240,10 @@ public class Runnable_ContactMap_Generation implements Runnable {
 		}
 		pWri.close();
 
-		File popIndexFile = new File(tarDir, String.format(FILENAME_FORMAT_POP_INDEX_MAP, seed));
+		File popIndexFile = new File(tarDir, String.format(Simulation_MetaPopulation.FILENAME_FORMAT_POP_INDEX_MAP, seed));
 		pWri = new PrintWriter(popIndexFile);
-		pWri.println("POP_INDEX,POP_ID");
+		
+		pWri.println(Simulation_MetaPopulation.FILE_HEADER_POP_INDEX_MAP);
 		for (Entry<String, Integer> ent : popIdToIndex.entrySet()) {
 			pWri.printf("%d,%s\n", ent.getValue(), ent.getKey());
 		}

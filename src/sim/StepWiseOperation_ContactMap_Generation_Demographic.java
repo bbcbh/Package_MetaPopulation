@@ -94,7 +94,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	private HashMap<Integer, ArrayList<Integer>> map_in_population_by_grp = new HashMap<>();
 	private HashMap<Integer, ArrayList<Integer>> map_available_by_grp = new HashMap<>();
 
-	private Pattern pattern_filename_movement = Pattern.compile(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT
+	private Pattern pattern_filename_movement = Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_MOVEMENT
 			.replaceAll("%s", "(\\d+)_(\\d+)").replaceAll("%d", "(-?\\d+)"));
 
 	private Comparator<LineCollectionEntry> movementLineCollectionCmp = new Comparator<LineCollectionEntry>() {
@@ -122,23 +122,23 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		this.loadedProperties = loadedProperties;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
-			this.baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
-			this.map_indiv = (AbstractMap<Integer, int[]>) loadedProperties.get(Simulation_Gen_MetaPop.PROP_INDIV_STAT);
+			this.baseDir = new File((String) loadedProperties.get(Simulation_MetaPopulation.PROP_BASEDIR));
+			this.map_indiv = (AbstractMap<Integer, int[]>) loadedProperties.get(Simulation_MetaPopulation.PROP_INDIV_STAT);
 			this.extraPartner_record = (List<int[]>) loadedProperties
-					.get(Simulation_Gen_MetaPop.PROP_PARNTER_EXTRA_SOUGHT);
+					.get(Simulation_MetaPopulation.PROP_PARNTER_EXTRA_SOUGHT);
 
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
 		}
-		if (loadedProperties.containsKey(Simulation_Gen_MetaPop.PROP_PRELOAD_FILES)) {
-			preloadLines = (Boolean) loadedProperties.get(Simulation_Gen_MetaPop.PROP_PRELOAD_FILES);
+		if (loadedProperties.containsKey(Simulation_MetaPopulation.PROP_PRELOAD_FILES)) {
+			preloadLines = (Boolean) loadedProperties.get(Simulation_MetaPopulation.PROP_PRELOAD_FILES);
 		}
 		pattern_filename_movement = Pattern.compile(
-				String.format(Runnable_Demographic_Generation.FILENAME_FORMAT_MOVEMENT, "(\\d+)_(\\d+)", mapSeed));
+				String.format(Simulation_MetaPopulation.FILENAME_FORMAT_MOVEMENT, "(\\d+)_(\\d+)", mapSeed));
 
 		File demogrpahic_dir = new File(baseDir,
-				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+				String.format(Simulation_MetaPopulation.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
 
 		// Load line collections
 		lines_demographic = null;
@@ -146,7 +146,7 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		lines_inflow = new ArrayList<>();
 
 		File file_res = new File(demogrpahic_dir,
-				String.format(Runnable_Demographic_Generation.FILENAME_FORMAT_DEMOGRAPHIC, popId, mapSeed));
+				String.format(Simulation_MetaPopulation.FILENAME_FORMAT_DEMOGRAPHIC, popId, mapSeed));
 
 		File[] flow_files = demogrpahic_dir.listFiles(new FileFilter() {
 			@Override
@@ -562,10 +562,10 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 		// Write contact map
 
 		File demogrpahic_dir = new File(baseDir,
-				String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
+				String.format(Simulation_MetaPopulation.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
 
 		File cMapFile = new File(demogrpahic_dir,
-				String.format(Runnable_ContactMap_Generation.FILENAME_FORMAT_CMAP_BY_POP, popId, mapSeed));
+				String.format(Simulation_MetaPopulation.FILENAME_FORMAT_CMAP_BY_POP, popId, mapSeed));
 		try {
 			File[] backup_to_be_remove = new File[0];
 			if (cMapFile.isFile()) {

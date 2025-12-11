@@ -22,7 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import sim.Abstract_Runnable_ClusterModel;
-import sim.Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection;
+import sim.Runnable_MetaPopulation_MultiTransmission;
 import sim.Simulation_ClusterModelTransmission;
 
 public class Util_Analyse_MetaPopulation {
@@ -547,7 +547,7 @@ public class Util_Analyse_MetaPopulation {
 
 										// Include infection if in range, or morbidity_prob_map has
 										// entry
-										if (treatment_type != Abstract_Runnable_MetaPopulation_Transmission_RMP_MultiInfection.INFECTION_HIST_OVERTREATMENT) {
+										if (treatment_type != Runnable_MetaPopulation_MultiTransmission.INFECTION_HIST_OVERTREATMENT) {
 											infection_hist_extract_entry.add(new int[] { inf_start, inf_end, inf_id });
 										}
 									}

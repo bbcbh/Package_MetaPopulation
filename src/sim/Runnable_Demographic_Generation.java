@@ -27,11 +27,6 @@ public class Runnable_Demographic_Generation implements Runnable {
 	private RandomGenerator RNG;
 	private long mapSeed;
 
-	public static final String FILENAME_FORMAT_DEMOGRAPHIC = "Demographic_%d_%d.csv"; // POP_ID, SEED
-	public static final String FILENAME_FORMAT_MOVEMENT = "Movement_%s_%d.csv"; // POPSRC_POPTAR , SEED
-	private static final String FILE_HEADER_DEMOGRAPHIC = "PID,ENTER_AT,EXIT_AT,ENTER_AGE,ENTER_GRP";
-	private static final String FILE_HEADER_MOVEMENT = "TIME,PID";
-
 	// K = PID, V = int[]{enter_pop_at, exit_pop_at, enter_pop_age, enter_grp,
 	// home_location, current_grp, current_loc}
 	private static final int INDEX_MAP_INDIV_ENTER_AT = 0;
@@ -59,8 +54,8 @@ public class Runnable_Demographic_Generation implements Runnable {
 		this.mapSeed = mapSeed;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
 		try {
-			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_Gen_MetaPop.PROP_LOC_MAP);
-			this.baseDir = new File((String) loadedProperties.get(Simulation_Gen_MetaPop.PROP_BASEDIR));
+			this.loc_map = (Map_Location_Mobility) loadedProperties.get(Simulation_MetaPopulation.PROP_LOC_MAP);
+			this.baseDir = new File((String) loadedProperties.get(Simulation_MetaPopulation.PROP_BASEDIR));
 		} catch (NullPointerException ex) {
 			ex.printStackTrace(System.err);
 			System.exit(-1);
@@ -420,7 +415,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 				File tarFile;
 				
 				File demogrpahic_dir = new File(baseDir, 
-						String.format(Simulation_Gen_MetaPop.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));				
+						String.format(Simulation_MetaPopulation.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));				
 				demogrpahic_dir.mkdirs();								
 				
 				for (Entry<Integer, int[]> ent : ent_arr) {
@@ -428,7 +423,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 					try {
 						PrintWriter pWri = demo_priWri.get(homeLoc);
 						if (pWri == null) {
-							tarFile = new File(demogrpahic_dir, String.format(FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed));
+							tarFile = new File(demogrpahic_dir, String.format(Simulation_MetaPopulation.FILENAME_FORMAT_DEMOGRAPHIC, homeLoc, mapSeed));
 
 							if (tarFile.exists()) {
 								Files.copy(tarFile.toPath(),
@@ -437,7 +432,7 @@ public class Runnable_Demographic_Generation implements Runnable {
 							}
 
 							pWri = new PrintWriter(tarFile);
-							pWri.println(FILE_HEADER_DEMOGRAPHIC);
+							pWri.println(Simulation_MetaPopulation.FILE_HEADER_DEMOGRAPHIC);
 							demo_priWri.put(homeLoc, pWri);
 						}
 						pWri.printf("%d,%d,%d,%d,%d\n", ent.getKey(), ent.getValue()[INDEX_MAP_INDIV_ENTER_AT],
@@ -454,9 +449,9 @@ public class Runnable_Demographic_Generation implements Runnable {
 				// Print movement CSV
 				for (Entry<String, StringBuilder> ent : map_movement_strBuilder.entrySet()) {
 					try {
-						tarFile = new File(demogrpahic_dir, String.format(FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed));
+						tarFile = new File(demogrpahic_dir, String.format(Simulation_MetaPopulation.FILENAME_FORMAT_MOVEMENT, ent.getKey(), mapSeed));
 						PrintWriter pWri = new PrintWriter(tarFile);
-						pWri.println(FILE_HEADER_MOVEMENT);
+						pWri.println(Simulation_MetaPopulation.FILE_HEADER_MOVEMENT);
 						pWri.print(ent.getValue().toString());
 						pWri.close();
 					} catch (IOException e) {
