@@ -117,6 +117,8 @@ public class Util_Analyse_MetaPopulation {
 						.compile("\\[(.+),(\\d+)\\]" + csvFeader + "(-?\\d+)_(-?\\d+).csv");
 
 				String[] keys = linesMap.keySet().toArray(new String[0]);
+				
+				
 				Arrays.sort(keys, new Comparator<String>() {
 					@Override
 					public int compare(String o1, String o2) {
@@ -137,6 +139,11 @@ public class Util_Analyse_MetaPopulation {
 
 				for (String key : keys) {
 					ArrayList<String[]> lines_from_sim = linesMap.get(key);
+					if(lines_from_sim.size() == 0) {
+						System.out.printf("Warning. Empty entry for %s at %s\n", key, zips[0].getAbsolutePath());
+					}
+					
+					
 					for (int p = 0; p < colIndex.length; p++) {
 						ArrayList<StringBuilder> lines_inf = lines_all_inf.get(p);
 						for (int lineNum = 0; lineNum < lines_from_sim.size(); lineNum++) {
@@ -161,7 +168,7 @@ public class Util_Analyse_MetaPopulation {
 									strBuild.append(m.group(3));
 									strBuild.append('_');
 									strBuild.append(m.group(4));
-									strBuild.append(')');
+									strBuild.append(')');																										
 								} else {
 									strBuild.append(key);
 								}
