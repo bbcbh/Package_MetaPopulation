@@ -164,10 +164,10 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 	@Override
 	public int getPersonGrp(Integer personId) {
 		int[] indiv_stat = indiv_map.get(personId);
-		int grp = indiv_stat[INDIV_MAP_CURRENT_GRP];
-		if (grp < 0) { // Expired person
-			grp = ((indiv_stat[INDIV_MAP_ENTER_GRP] / (NUM_GRP / 2)) + 1) * (NUM_GRP / 2) - 1;
-		}
+		int grp = indiv_stat[INDIV_MAP_CURRENT_GRP];						
+//		if (grp < 0) { // Expired person
+//			grp = ((indiv_stat[INDIV_MAP_ENTER_GRP] / (NUM_GRP / 2)) + 1) * (NUM_GRP / 2) - 1;
+//		}
 		return grp;
 	}
 
@@ -235,18 +235,27 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 
 				int nextGrp = checkGrp + 1;
 
-				if (indiv_stat[INDIV_MAP_EXIT_POP_AT] > 0 && indiv_stat[INDIV_MAP_EXIT_POP_AT] < changeTime) {
+				boolean exitPop = nextGrp < grp_age_range.length ? grp_age_range[nextGrp][0] != changeAge : true;
+
+				exitPop |= indiv_stat[INDIV_MAP_EXIT_POP_AT] >= 0 && indiv_stat[INDIV_MAP_EXIT_POP_AT] <= changeTime;
+				
+				if (exitPop) {
 					changeTime = indiv_stat[INDIV_MAP_EXIT_POP_AT];
 					nextGrp = -1;
 					reach_max_age_grp = true;
 				}
 
-				if ((checkGrp % (NUM_GRP / 2)) + 1 < (NUM_GRP / 2)) {
-					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, nextGrp });
-				} else {
-					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, -1 });
-					reach_max_age_grp = true;
-				}
+				addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, nextGrp });
+
+//				if ((checkGrp % (NUM_GRP / 2)) + 1 < (NUM_GRP / 2)) {
+//					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, nextGrp });
+//				} else {
+//					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, -1 });
+//					reach_max_age_grp = true;
+//				}
+
+				
+
 				checkGrp++;
 			}
 
@@ -283,8 +292,9 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 					if (indiv_grp_change[SCH_GRP_TO] != -1) {
 						grpPids = current_pids_by_grp.get(indiv_grp_change[SCH_GRP_TO]);
 						grpPids.add(~Collections.binarySearch(grpPids, pid), pid);
-					}
-
+					}	
+					// Reset test rate index due to group change
+					test_rate_index_map.remove(pid);
 				}
 			}
 			lastIndivdualUpdateTime++;
@@ -340,17 +350,17 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 
 	@Override
 	protected void applyTreatment(int currentTime, int infId, int pid, int[][] inf_stage) {
-	
+
 		int[] preTreatment_stage = Arrays.copyOf(inf_stage[infId], inf_stage[infId].length);
-	
+
 		super.applyTreatment(currentTime, infId, pid, inf_stage);
-	
+
 		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
 			ArrayList<Integer> infHist = infection_history.get(pid).get(infId);
-	
+
 			boolean nonInfected = true;
 			boolean treatment_suc = false;
-	
+
 			for (int i = 0; i < preTreatment_stage.length; i++) {
 				nonInfected &= preTreatment_stage[i] == AbstractIndividualInterface.INFECT_S;
 				treatment_suc |= preTreatment_stage[i] >= 0 && preTreatment_stage[i] != inf_stage[infId][i];
@@ -366,25 +376,26 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 				} else {
 					System.err.printf("Infection history error: %s -> %s.\n", Arrays.toString(preTreatment_stage),
 							Arrays.toString(inf_stage[infId]));
-	
+
 				}
 			}
 		}
-	
+
 	}
 
 	@Override
-	public int addInfectious(Integer infectedPId, int infectionId, int site_id, int stage_id, int infectious_time, int state_duration_adj) {
-		int res = super.addInfectious(infectedPId, infectionId, site_id, stage_id, infectious_time, state_duration_adj);
-	
+	public int addInfectious(Integer pid, int infectionId, int site_id, int stage_id, int infectious_time,
+			int state_duration_adj) {
+		int res = super.addInfectious(pid, infectionId, site_id, stage_id, infectious_time, state_duration_adj);
+
 		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
-			ArrayList<ArrayList<Integer>> hist_all = infection_history.get(infectedPId);
+			ArrayList<ArrayList<Integer>> hist_all = infection_history.get(pid);
 			if (hist_all == null) {
 				hist_all = new ArrayList<>();
 				for (int i = 0; i < NUM_INF; i++) {
 					hist_all.add(new ArrayList<>());
 				}
-				infection_history.put(infectedPId, hist_all);
+				infection_history.put(pid, hist_all);
 			}
 			ArrayList<Integer> hist_by_inf = hist_all.get(infectionId);
 			// Check for new infection (i.e. previously recovered naturally or through
@@ -397,7 +408,8 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 	}
 
 	@Override
-	protected int[] handleNoNextStage(Integer pid, int infection_id, int site_id, int current_infection_stage, int current_time) {
+	protected int[] handleNoNextStage(Integer pid, int infection_id, int site_id, int current_infection_stage,
+			int current_time) {
 		int[] res = super.handleNoNextStage(pid, infection_id, site_id, current_infection_stage, current_time);
 		// res = {next_stage, duration}
 		if ((simSetting & 1 << Simulation_ClusterModelTransmission.SIM_SETTING_KEY_TRACK_INFECTION_HISTORY) > 0) {
@@ -415,9 +427,9 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 					infHist.add(INFECTION_HIST_CLEAR_NATURAL_RECOVERY);
 				}
 			}
-	
+
 		}
-	
+
 		return res;
 	}
 
