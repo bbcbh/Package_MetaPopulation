@@ -49,6 +49,8 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 
 	// Individual movement
 	protected String[] location_name; // Pop_ID, Pop_Index
+	protected HashMap<String, Integer> map_location = new HashMap<>();
+
 	// Key = LocationFrom_LocationTo
 	protected HashMap<String, LineCollectionEntry> movementCollections = new HashMap<>();
 	protected HashMap<Integer, ArrayList<Integer>> visitor_pids_by_loc = new HashMap<>();
@@ -93,6 +95,10 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 			for (int i = 1; i < location_lines.length; i++) {
 				String[] ent = location_lines[i].split(",");
 				location_name[Integer.parseInt(ent[0])] = ent[1];
+			}
+
+			for (int i = 0; i < location_name.length; i++) {
+				map_location.put(location_name[i], i);
 			}
 		} catch (IOException e) {
 			e.printStackTrace(System.err);
@@ -164,7 +170,7 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 	@Override
 	public int getPersonGrp(Integer personId) {
 		int[] indiv_stat = indiv_map.get(personId);
-		int grp = indiv_stat[INDIV_MAP_CURRENT_GRP];						
+		int grp = indiv_stat[INDIV_MAP_CURRENT_GRP];
 //		if (grp < 0) { // Expired person
 //			grp = ((indiv_stat[INDIV_MAP_ENTER_GRP] / (NUM_GRP / 2)) + 1) * (NUM_GRP / 2) - 1;
 //		}
@@ -238,7 +244,7 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 				boolean exitPop = nextGrp < grp_age_range.length ? grp_age_range[nextGrp][0] != changeAge : true;
 
 				exitPop |= indiv_stat[INDIV_MAP_EXIT_POP_AT] >= 0 && indiv_stat[INDIV_MAP_EXIT_POP_AT] <= changeTime;
-				
+
 				if (exitPop) {
 					changeTime = indiv_stat[INDIV_MAP_EXIT_POP_AT];
 					nextGrp = -1;
@@ -253,8 +259,6 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 //					addEntryToSchduleGrpChange(changeTime, new int[] { pid, checkGrp, -1 });
 //					reach_max_age_grp = true;
 //				}
-
-				
 
 				checkGrp++;
 			}
@@ -292,7 +296,7 @@ public class Runnable_MetaPopulation_MultiTransmission extends Runnable_ClusterM
 					if (indiv_grp_change[SCH_GRP_TO] != -1) {
 						grpPids = current_pids_by_grp.get(indiv_grp_change[SCH_GRP_TO]);
 						grpPids.add(~Collections.binarySearch(grpPids, pid), pid);
-					}	
+					}
 					// Reset test rate index due to group change
 					test_rate_index_map.remove(pid);
 				}
