@@ -206,7 +206,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 							ArrayList<Integer> potential_partners = new ArrayList<>();
 							int grp_chk = 0;
 
-							while ((1 << grp_chk) < validGrpInc) {
+							while ((1 << grp_chk) <= validGrpInc) {
 								if ((validGrpInc & (1 << grp_chk)) != 0) {
 									if (seek_extra_by_enterGrp_loc.get(grp_chk) != null) {
 										if (seek_extra_by_enterGrp_loc.get(grp_chk).get(common_loc) != null) {
