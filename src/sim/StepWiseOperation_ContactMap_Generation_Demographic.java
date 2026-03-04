@@ -80,9 +80,9 @@ public class StepWiseOperation_ContactMap_Generation_Demographic {
 	private static final int PARTNERSHIP_PROB_START = PARTNERSHIP_REG_DUR_SD + 1;
 
 	private double[][] mat_mixing;
-	private static final int MIXING_GRP_NUM = 0;
-	private static final int MIXING_PROB_REG = MIXING_GRP_NUM + 1;
-	private static final int MIXING_PROB_START = MIXING_PROB_REG + 1; // Use group_incl format if < 0
+	public static final int MIXING_GRP_NUM = 0;
+	public static final int MIXING_PROB_REG = MIXING_GRP_NUM + 1;
+	public static final int MIXING_PROB_START = MIXING_PROB_REG + 1; // Use group_incl format if < 0
 
 	private AbstractRealDistribution[] rel_duration_dist;
 

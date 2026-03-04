@@ -30,15 +30,48 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 
 	protected ArrayList<int[]> extra_partnership_formed = new ArrayList<>();
 	private RandomGenerator RNG;
-	private int NUM_AGE_GRP; // So Grp number / NUM_AGE_GRP is gender
+	private int NUM_LOC;
+
+	private HashMap<Integer, Long> valid_partner_grp_incl = new HashMap<>();
 
 	public Runnable_Hetero_Casual_Partnership_Generation(long mapSeed, HashMap<String, Object> loadedProperties) {
 		this.mapSeed = mapSeed;
 		this.loadedProperties = loadedProperties;
 		this.RNG = new MersenneTwisterRandomGenerator(mapSeed);
-		// Format: POP_ID,Name,M0,M1... F0,F1...
-		this.NUM_AGE_GRP = (((Map_Location_Mobility) loadedProperties.get(Simulation_MetaPopulation.PROP_LOC_MAP))
-				.getNodeInfo_header().split(",").length - 2) / 2;
+
+		double[][] mat_mixing = (double[][]) util.PropValUtils.propStrToObject(
+				(String) loadedProperties.get(String.format("%s%d",
+						Simulation_ClusterModelGeneration.POP_PROP_INIT_PREFIX,
+						StepWiseOperation_ContactMap_Generation_Demographic.RUNNABLE_FIELD_RMP_CONTACT_MAP_GEN_MULTIMAP_PARTNERSHIP_GRP_MIXING)),
+				double[][].class);
+
+		for (double[] mix : mat_mixing) {
+			int grpIndex = (int) mix[StepWiseOperation_ContactMap_Generation_Demographic.MIXING_GRP_NUM];
+			int numGrp = -(int) mix[StepWiseOperation_ContactMap_Generation_Demographic.MIXING_PROB_START];
+			long validGrp_Incl = 0l;
+
+			if (numGrp > 0) {
+				for (int i = StepWiseOperation_ContactMap_Generation_Demographic.MIXING_PROB_START
+						+ 1; i < StepWiseOperation_ContactMap_Generation_Demographic.MIXING_PROB_START + 1
+								+ numGrp; i++) {
+					validGrp_Incl += mix[i];
+				}
+
+			} else {
+				// For backward compatibility
+				for (int i = StepWiseOperation_ContactMap_Generation_Demographic.MIXING_PROB_START; i < mix.length; i++) {
+					if (mix[i] > 0) {
+						validGrp_Incl += 1 << (i
+								- StepWiseOperation_ContactMap_Generation_Demographic.MIXING_PROB_START);
+					}
+				}
+			}
+
+			valid_partner_grp_incl.put(grpIndex, validGrp_Incl);
+		}
+
+		this.NUM_LOC = ((Map_Location_Mobility) loadedProperties.get(Simulation_MetaPopulation.PROP_LOC_MAP))
+				.getNode_info().keySet().size();
 
 	}
 
@@ -59,20 +92,20 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 				String.format(Simulation_MetaPopulation.DIR_NAME_FORMAT_DEMOGRAPHIC, mapSeed));
 
 		// Load demographic file
-		loadCollection(demogrpahic_dir,
-				Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_DEMOGRAPHIC
+		loadCollection(
+				demogrpahic_dir, Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_DEMOGRAPHIC
 						.replaceFirst("%d", "(\\\\d+)").replaceFirst("%d", Long.toString(getMapSeed()))),
 				demogrpahicCollections);
 
 		// Load movement file
-		loadCollection(demogrpahic_dir,
-				Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_MOVEMENT
+		loadCollection(
+				demogrpahic_dir, Pattern.compile(Simulation_MetaPopulation.FILENAME_FORMAT_MOVEMENT
 						.replaceFirst("%s", "(\\\\d+_\\\\d+)").replaceAll("%d", Long.toString(getMapSeed()))),
 				movementCollections);
 		// Load extra partners
-		loadCollection(
-				demogrpahic_dir, Pattern.compile(String
-						.format(Simulation_MetaPopulation.FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, getMapSeed())),
+		loadCollection(demogrpahic_dir,
+				Pattern.compile(
+						String.format(Simulation_MetaPopulation.FILENAME_FORMAT_EXTRA_PARTNER_SOUGHT, getMapSeed())),
 				extraPartnerCollections);
 
 		int currentTime = 0;
@@ -80,18 +113,19 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 				(String) getLoadedProperties().get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_NUM_SNAP]))
 				* Integer.parseInt((String) getLoadedProperties()
 						.get(SimulationInterface.PROP_NAME[SimulationInterface.PROP_SNAP_FREQ]));
-		
+
 		// Extra year round up
-		max_time = (max_time / AbstractIndividualInterface.ONE_YEAR_INT + 1)  * AbstractIndividualInterface.ONE_YEAR_INT + 1;
+		max_time = (max_time / AbstractIndividualInterface.ONE_YEAR_INT + 1) * AbstractIndividualInterface.ONE_YEAR_INT
+				+ 1;
 
 		// Key = PID, Val = See Runnable_MetaPopulation_Transmission_RMP_MultiInfection.
 		HashMap<Integer, int[]> indiv_map = new HashMap<>();
 		// Key = PID, Val = int[]{number_to_seek, valid_until}
 		HashMap<Integer, int[]> seek_extra_partners = new HashMap<>();
-		HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> seek_extra_by_gender_loc = new HashMap<>();
+		HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> seek_extra_by_enterGrp_loc = new HashMap<>();
 
 		while (currentTime < max_time) {
-			updateIndivduals(currentTime, indiv_map, seek_extra_partners, seek_extra_by_gender_loc);
+			updateIndivduals(currentTime, indiv_map, seek_extra_partners, seek_extra_by_enterGrp_loc);
 
 			// Update movement
 			for (Entry<String, LineCollectionEntry> mvE : movementCollections.entrySet()) {
@@ -109,23 +143,31 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 						}
 
 						indiv_stat[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC] = tar_loc;
-						int gender = indiv_stat[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
-								/ NUM_AGE_GRP;
+						int enterGrp = indiv_stat[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP];
 
 						int[] extra_stat = seek_extra_partners.get(pid);
 						if (extra_stat != null && extra_stat[0] > 0) {
-							HashMap<Integer, ArrayList<Integer>> seek_extra_by_loc = seek_extra_by_gender_loc
-									.get(gender);
+							ArrayList<Integer> candidates_by_loc;
+							HashMap<Integer, ArrayList<Integer>> seek_extra_by_loc = seek_extra_by_enterGrp_loc
+									.get(enterGrp);
 							if (seek_extra_by_loc == null) {
 								seek_extra_by_loc = new HashMap<>();
-								seek_extra_by_gender_loc.put(gender, seek_extra_by_loc);
+								seek_extra_by_enterGrp_loc.put(enterGrp, seek_extra_by_loc);
 							}
 
-							seek_extra_by_loc.get(src_loc)
-									.remove(Collections.binarySearch(seek_extra_by_loc.get(src_loc), pid));
+							candidates_by_loc = seek_extra_by_loc.get(src_loc);
+							seek_extra_by_loc.get(src_loc).remove(Collections.binarySearch(candidates_by_loc, pid));
+
+							candidates_by_loc = seek_extra_by_loc.get(tar_loc);
+
+							if (candidates_by_loc == null) {
+								candidates_by_loc = new ArrayList<>();
+								seek_extra_by_loc.put(tar_loc, candidates_by_loc);
+							}
 
 							seek_extra_by_loc.get(tar_loc)
 									.add(~Collections.binarySearch(seek_extra_by_loc.get(tar_loc), pid), pid);
+
 						}
 
 						mvE.getValue().loadNextLine();
@@ -144,36 +186,50 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 				int[] extra_sought_ent_seeker = seek_extra_partners.get(pid_seeker);
 				if (extra_sought_ent_seeker != null) {
 					int[] indiv_stat_seeker = indiv_map.get(pid_seeker);
-					int gender_seeker = indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
-							/ NUM_AGE_GRP;
+					int enterGrp_seeker = indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP];
+
 					int common_loc = indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC];
 					if (indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_EXIT_POP_AT] != -1
 							&& indiv_stat_seeker[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_EXIT_POP_AT] < currentTime) {
 						// Remove expired
 						seek_extra_partners.remove(pid_seeker);
-						seek_extra_by_loc = seek_extra_by_gender_loc.get(gender_seeker);
+						seek_extra_by_loc = seek_extra_by_enterGrp_loc.get(enterGrp_seeker);
 						seek_extra_by_loc.get(common_loc)
 								.remove(Collections.binarySearch(seek_extra_by_loc.get(common_loc), pid_seeker));
 					} else {
 						// Check if seeking partners today
 						if (RNG.nextInt(
 								Math.max(extra_sought_ent_seeker[1] - currentTime, 1)) < extra_sought_ent_seeker[0]) {
-							ArrayList<Integer> seeker_partners_by_loc = seek_extra_by_gender_loc.get(1 - gender_seeker)
-									.get(common_loc);
 
-							if (seeker_partners_by_loc.size() > 1) {
-								int index = RNG.nextInt(seeker_partners_by_loc.size());
-								Integer partner_pid = seeker_partners_by_loc.get(index);
+							long validGrpInc = valid_partner_grp_incl.get(enterGrp_seeker);
+
+							ArrayList<Integer> potential_partners = new ArrayList<>();
+							int grp_chk = 0;
+
+							while ((1 << grp_chk) < validGrpInc) {
+								if ((validGrpInc & (1 << grp_chk)) != 0) {
+									if (seek_extra_by_enterGrp_loc.get(grp_chk) != null) {
+										if (seek_extra_by_enterGrp_loc.get(grp_chk).get(common_loc) != null) {
+											potential_partners
+													.addAll(seek_extra_by_enterGrp_loc.get(grp_chk).get(common_loc));
+										}
+									}
+								}
+								grp_chk++;
+							}
+
+							if (potential_partners.size() > 1) {
+								int index = RNG.nextInt(potential_partners.size());
+								Integer partner_pid = potential_partners.get(index);
 								extra_partnership_formed.add(new int[] { pid_seeker, partner_pid, currentTime, 1 });
 
 								for (int pid_r : new int[] { pid_seeker, partner_pid }) {
 									seek_extra_partners.get(pid_r)[0]--;
 									if (seek_extra_partners.get(pid_r)[0] == 0) {
-										int gender_r = indiv_map.get(
-												pid_r)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
-												/ NUM_AGE_GRP;
+										int enterGrp_r = indiv_map.get(
+												pid_r)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP];
 										seek_extra_partners.remove(pid_r);
-										seek_extra_by_loc = seek_extra_by_gender_loc.get(gender_r);
+										seek_extra_by_loc = seek_extra_by_enterGrp_loc.get(enterGrp_r);
 										seek_extra_by_loc.get(common_loc).remove(
 												Collections.binarySearch(seek_extra_by_loc.get(common_loc), pid_r));
 
@@ -195,8 +251,8 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 		// Extra partners sought
 		PrintWriter pWri;
 		try {
-			pWri = new PrintWriter(new File(demogrpahic_dir, String
-					.format(Runnable_ClusterModel_ContactMap_Generation_MultiMap.MAPFILE_FORMAT, 0, getMapSeed())));
+			pWri = new PrintWriter(new File(demogrpahic_dir, String.format(
+					Runnable_ClusterModel_ContactMap_Generation_MultiMap.MAPFILE_FORMAT, NUM_LOC, getMapSeed())));
 
 			for (int[] extra_p : extra_partnership_formed) {
 				pWri.printf("%d,%d,%d,%d\n", extra_p[0], extra_p[1], extra_p[2], extra_p[3]);
@@ -213,7 +269,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 
 	protected void updateIndivduals(int currentTime, HashMap<Integer, int[]> indiv_map,
 			HashMap<Integer, int[]> seek_extra_partners,
-			HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> seek_extra_by_gender_loc) {
+			HashMap<Integer, HashMap<Integer, ArrayList<Integer>>> seek_extra_by_enterGrp_loc) {
 		updateIndivdualMap(currentTime, indiv_map);
 
 		for (LineCollectionEntry extraPartnerCollections : extraPartnerCollections.values()) {
@@ -223,9 +279,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 			int time_from = ent_sp == null ? Integer.MAX_VALUE : Integer.parseInt(ent_sp[0]);
 			while (time_from <= currentTime) {
 				int pid = Integer.parseInt(ent_sp[1]);
-				int gender = indiv_map
-						.get(pid)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP]
-						/ NUM_AGE_GRP;
+				int enterGrp = indiv_map.get(pid)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP];
 
 				int partner_sought = Integer.parseInt(ent_sp[2]);
 				int time_until = time_from + AbstractIndividualInterface.ONE_YEAR_INT;
@@ -234,14 +288,13 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 					extra_sought_ent = new int[2]; // int[]{number_to_seek, valid_until}
 					seek_extra_partners.put(pid, extra_sought_ent);
 
-					HashMap<Integer, ArrayList<Integer>> seek_extra_by_loc = seek_extra_by_gender_loc.get(gender);
+					HashMap<Integer, ArrayList<Integer>> seek_extra_by_loc = seek_extra_by_enterGrp_loc.get(enterGrp);
 					if (seek_extra_by_loc == null) {
 						seek_extra_by_loc = new HashMap<>();
-						seek_extra_by_gender_loc.put(gender, seek_extra_by_loc);
+						seek_extra_by_enterGrp_loc.put(enterGrp, seek_extra_by_loc);
 					}
 
-					int curLoc = indiv_map.get(
-							pid)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC];
+					int curLoc = indiv_map.get(pid)[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC];
 					ArrayList<Integer> seek_extra_pids = seek_extra_by_loc.get(curLoc);
 					if (seek_extra_pids == null) {
 						seek_extra_pids = new ArrayList<>();
@@ -288,8 +341,7 @@ public class Runnable_Hetero_Casual_Partnership_Generation implements Runnable {
 						.parseInt(str_ent[4]);
 
 				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_HOME_LOC] = home_loc;
-				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP] = Integer
-						.parseInt(str_ent[4]);
+				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_ENTER_GRP] = Integer.parseInt(str_ent[4]);
 				indiv_ent[Runnable_MetaPopulation_MultiTransmission.INDIV_MAP_CURRENT_LOC] = home_loc;
 				indiv_map.put(pid, indiv_ent);
 
